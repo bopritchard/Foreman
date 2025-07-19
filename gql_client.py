@@ -1,4 +1,3 @@
-# gql_client_v2.py
 """
 Scalable GraphQL client for Foreman
 """
@@ -13,8 +12,14 @@ class GraphQLClient:
     """Generic GraphQL client for AppSync"""
     
     def __init__(self):
-        self.graphql_url = os.getenv("GRAPHQL_URL", "https://example.com/graphql")
-        self.api_key = os.getenv("APPSYNC_API_KEY", "")
+        self.graphql_url = os.getenv("GRAPHQL_URL")
+        self.api_key = os.getenv("APPSYNC_API_KEY")
+        
+        if not self.graphql_url:
+            raise ValueError("GRAPHQL_URL environment variable is required. Please set it in your .env file.")
+        
+        if not self.api_key:
+            raise ValueError("APPSYNC_API_KEY environment variable is required. Please set it in your .env file.")
     
     def _get_headers(self) -> Dict[str, str]:
         """Get request headers"""
