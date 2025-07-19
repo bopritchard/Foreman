@@ -36,23 +36,26 @@ pip install -r requirements.txt
 
 2. **Deploy AWS Infrastructure:**
 ```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Deploy infrastructure
+# Deploy core infrastructure
 ./deploy.sh
 
-# Or manually deploy if needed:
-aws cloudformation deploy --template-file cloudformation/foreman-core.yaml --stack-name foreman-dev --region us-east-1 --capabilities CAPABILITY_NAMED_IAM --parameter-overrides Environment=dev ProjectName=foreman
+# Deploy S3 pipeline (optional)
+./deploy-s3-pipeline.sh
+
+# Deploy web interface (optional)
+./deploy-web-simple.sh
 ```
 
-3. **Test the deployment:**
+3. **Access the platform:**
 ```bash
-# Dry run (validation only)
-python main.py --file sample.csv --dry-run
-
-# Submit to GraphQL
+# Local CLI processing
 python main.py --file sample.csv --submit
+
+# Web interface (if deployed)
+# Open: https://u26lyxxmqh.execute-api.us-east-1.amazonaws.com/prod
+
+# S3 automated processing (if deployed)
+aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
 ```
 
 ## 📁 Project Structure
@@ -60,17 +63,23 @@ python main.py --file sample.csv --submit
 ```
 Foreman/
 ├── main.py                 # CLI entry point
-├── mapper.py              # CSV field mapping
-├── validator.py           # Data validation
 ├── gql_client.py          # GraphQL client
-├── sample.csv             # Sample data
-├── deploy.sh              # AWS deployment script
+├── models/                 # Data models (Customer, Project, etc.)
+├── sample.csv             # Sample customer data
+├── sample_projects.csv    # Sample project data
+├── deploy.sh              # Core AWS deployment script
+├── deploy-s3-pipeline.sh  # S3 pipeline deployment
+├── deploy-web-simple.sh   # Web interface deployment
 ├── get-outputs.py         # Stack output retrieval
 ├── requirements.txt        # Python dependencies
+├── web_upload.py          # Local Flask web interface
+├── UPLOAD_GUIDE.md        # Comprehensive upload guide
 ├── ROADMAP.md             # Future implementation phases
 ├── .env                   # Environment variables
 ├── cloudformation/
-│   └── foreman-core.yaml  # AWS infrastructure template
+│   ├── foreman-core.yaml      # Core AWS infrastructure
+│   ├── foreman-s3-pipeline.yaml # S3 processing pipeline
+│   └── foreman-web-simple.yaml  # Web interface
 └── README.md              # This file
 ```
 
@@ -78,38 +87,67 @@ Foreman/
 
 ### Core Functionality
 - ✅ CSV ingestion and preview
-- ✅ Field mapping (CSV → internal schema)
+- ✅ Auto-detection of data types (Customer, Project, etc.)
 - ✅ Row-by-row validation
 - ✅ GraphQL mutation submission
 - ✅ AWS AppSync integration
 - ✅ DynamoDB persistence
+- ✅ Multiple upload methods (CLI, Web, S3)
 
 ### AWS Infrastructure
 - ✅ AppSync GraphQL API with API key authentication
 - ✅ DynamoDB table for customers with point-in-time recovery
 - ✅ Lambda resolvers with proper IAM permissions
+- ✅ S3 bucket with automated processing pipeline
+- ✅ API Gateway web interface
 - ✅ IAM roles and permissions (AppSync → Lambda → DynamoDB)
 - ✅ CloudFormation deployment with exports
 - ✅ Environment variable management
 
 ## 📊 Data Flow
 
+### Local Processing:
 1. **CSV Loading**: Reads CSV file and shows preview
-2. **Field Mapping**: Maps CSV columns to internal schema
+2. **Auto-detection**: Identifies data type (Customer, Project, etc.)
 3. **Validation**: Validates each row for data quality
 4. **GraphQL Submission**: Submits valid data to AppSync
 5. **Persistence**: Data stored in DynamoDB
 
+### S3 Automated Processing:
+1. **File Upload**: CSV uploaded to S3 bucket
+2. **Event Trigger**: S3 event triggers Lambda function
+3. **Auto-detection**: Lambda identifies data type
+4. **Processing**: Validates and processes data
+5. **GraphQL Submission**: Submits to AppSync API
+6. **File Management**: Moves processed files to processed/failed folders
+
 ## 🎯 Usage Examples
 
-### Dry Run (Validation Only)
+### Local CLI Processing
 ```bash
+# Dry run (validation only)
 python main.py --file sample.csv --dry-run
+
+# Submit to GraphQL
+python main.py --file sample.csv --submit
+
+# List available models
+python main.py --list-models
 ```
 
-### Submit to GraphQL
+### Web Interface
 ```bash
-python main.py --file sample.csv --submit
+# Start local web server
+python web_upload.py
+
+# Or access deployed web interface
+# https://u26lyxxmqh.execute-api.us-east-1.amazonaws.com/prod
+```
+
+### S3 Automated Processing
+```bash
+# Upload to S3 (triggers automatic processing)
+aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
 ```
 
 ### Sample Output
@@ -175,15 +213,17 @@ python main.py --file sample.csv --submit
 
 ### Current Status ✅
 - **Phase 1 Complete**: Core infrastructure deployed and working
-- **10 customers successfully created** with 100% success rate
-- **Real-time data processing** from CSV to DynamoDB
+- **Phase 2 Complete**: S3 pipeline with automated processing
+- **Phase 3 Complete**: Web interface deployed to AWS
+- **Multiple upload methods** available (CLI, Web, S3)
+- **Auto-detection** of data types (Customer, Project)
+- **Scalable architecture** ready for production
 
 ### Planned Enhancements (See ROADMAP.md)
-- [ ] **Phase 2**: S3 file upload pipeline with automated processing
-- [ ] **Phase 3**: ECS containerization for scalable deployment
-- [ ] **Phase 4**: Step Functions orchestration for complex workflows
-- [ ] **Phase 5**: Web UI for user-friendly file upload
+- [ ] **Phase 4**: ECS containerization for scalable deployment
+- [ ] **Phase 5**: Step Functions orchestration for complex workflows
 - [ ] **Phase 6**: Advanced features (multi-region, monitoring, security)
+- [ ] **Phase 7**: Additional data models (Jobs, Invoices, etc.)
 
 ### Infrastructure Scaling
 - [ ] Multi-region deployment
