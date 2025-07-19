@@ -42,7 +42,7 @@ Resources:
                           },
                           'body': get_html_content()
                       }
-                  elif http_method == 'POST' and path == '/upload':
+                  elif http_method == 'POST':
                       return handle_upload(event)
                   else:
                       return {
@@ -192,11 +192,11 @@ Resources:
                           const fileInput = document.querySelector('input[type="file"]');
                           formData.append('file', fileInput.files[0]);
                           
-                          try {
-                              const response = await fetch('/upload', {
-                                  method: 'POST',
-                                  body: formData
-                              });
+                                                     try {
+                               const response = await fetch('/', {
+                                   method: 'POST',
+                                   body: formData
+                               });
                               
                               const result = await response.json();
                               
@@ -227,18 +227,37 @@ Resources:
               '''
           
           def handle_upload(event):
-              # This would handle the actual file upload
-              # For now, return a success message
-              return {
-                  'statusCode': 200,
-                  'headers': {
-                      'Content-Type': 'application/json',
-                      'Access-Control-Allow-Origin': '*'
-                  },
-                  'body': json.dumps({
-                      'message': 'File uploaded successfully! Processing started...'
-                  })
-              }
+              try:
+                  # Parse the multipart form data
+                  import base64
+                  
+                  # For now, simulate file upload to S3
+                  # In a real implementation, you'd parse the multipart data
+                  # and upload to S3
+                  
+                  return {
+                      'statusCode': 200,
+                      'headers': {
+                          'Content-Type': 'application/json',
+                          'Access-Control-Allow-Origin': '*'
+                      },
+                      'body': json.dumps({
+                          'message': 'File uploaded successfully! Processing started...',
+                          'status': 'success'
+                      })
+                  }
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'headers': {
+                          'Content-Type': 'application/json',
+                          'Access-Control-Allow-Origin': '*'
+                      },
+                      'body': json.dumps({
+                          'error': str(e),
+                          'status': 'error'
+                      })
+                  }
       
       Handler: index.lambda_handler
       Runtime: python3.9
@@ -309,6 +328,19 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebApiFunction.Arn}/invocations'
 
+  # API Gateway Method for OPTIONS (CORS)
+  WebApiMethodOptions:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WebApiGateway
+      ResourceId: !GetAtt WebApiGateway.RootResourceId
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+
   # Lambda Permission for API Gateway
   WebApiLambdaPermission:
     Type: AWS::Lambda::Permission
@@ -324,6 +356,7 @@ Resources:
     DependsOn:
       - WebApiMethodGet
       - WebApiMethodPost
+      - WebApiMethodOptions
     Properties:
       RestApiId: !Ref WebApiGateway
       StageName: prod
