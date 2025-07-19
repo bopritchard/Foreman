@@ -1,0 +1,349 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foreman - Core Infrastructure for Data Onboarding Platform'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name (dev, staging, prod)
+  
+  ProjectName:
+    Type: String
+    Default: foreman
+    Description: Project name for resource naming
+
+
+
+Resources:
+  # DynamoDB Table for Customers
+  CustomersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-${Environment}-customers'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-lambda-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: !GetAtt CustomersTable.Arn
+
+  # Lambda Function for Customer Creation
+  CreateCustomerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${Environment}-create-customer'
+      Timeout: 30
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import uuid
+          import os
+          from datetime import datetime
+          
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('TABLE_NAME', 'foreman-dev-customers')
+          table = dynamodb.Table(table_name)
+          
+          def lambda_handler(event, context):
+              try:
+                  # Extract customer data from the event
+                  customer_data = event.get('arguments', {}).get('input', {})
+                  
+                  # Generate unique ID
+                  customer_id = str(uuid.uuid4())
+                  
+                  # Prepare item for DynamoDB
+                  item = {
+                      'id': customer_id,
+                      'name': customer_data.get('name'),
+                      'email': customer_data.get('email'),
+                      'signupDate': customer_data.get('signupDate', datetime.utcnow().isoformat()),
+                      'createdAt': datetime.utcnow().isoformat(),
+                      'updatedAt': datetime.utcnow().isoformat()
+                  }
+                  
+                  # Save to DynamoDB
+                  table.put_item(Item=item)
+                  
+                  return {
+                      'id': customer_id,
+                      'name': item['name'],
+                      'email': item['email'],
+                      'signupDate': item['signupDate']
+                  }
+                  
+              except Exception as e:
+                  raise Exception(f'Error creating customer: {str(e)}')
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref CustomersTable
+
+  # Lambda Function for Customer Query
+  GetCustomerFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${Environment}-get-customer'
+      Timeout: 30
+      Runtime: python3.9
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          
+          dynamodb = boto3.resource('dynamodb')
+          table_name = os.environ.get('TABLE_NAME', 'foreman-dev-customers')
+          table = dynamodb.Table(table_name)
+          
+          def lambda_handler(event, context):
+              try:
+                  # Extract customer ID from the event
+                  customer_id = event.get('arguments', {}).get('id')
+                  
+                  if not customer_id:
+                      raise Exception('Customer ID is required')
+                  
+                  # Get item from DynamoDB
+                  response = table.get_item(Key={'id': customer_id})
+                  
+                  if 'Item' not in response:
+                      return None
+                  
+                  return response['Item']
+                  
+              except Exception as e:
+                  raise Exception(f'Error getting customer: {str(e)}')
+      Handler: index.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref CustomersTable
+
+  # AppSync GraphQL API
+  AppSyncAPI:
+    Type: AWS::AppSync::GraphQLApi
+    Properties:
+      Name: !Sub '${ProjectName}-${Environment}-api'
+      AuthenticationType: API_KEY
+      XrayEnabled: true
+
+  # AppSync API Key
+  AppSyncAPIKey:
+    Type: AWS::AppSync::ApiKey
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      Description: !Sub 'API Key for ${ProjectName} ${Environment}'
+
+  # GraphQL Schema
+  GraphQLSchema:
+    Type: AWS::AppSync::GraphQLSchema
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      Definition: |
+        type Customer {
+          id: ID!
+          name: String!
+          email: String!
+          signupDate: String!
+          createdAt: String!
+          updatedAt: String!
+        }
+        
+        input CustomerInput {
+          name: String!
+          email: String!
+          signupDate: String
+        }
+        
+        type Query {
+          getCustomer(id: ID!): Customer
+          listCustomers: [Customer]
+        }
+        
+        type Mutation {
+          createCustomer(input: CustomerInput!): Customer!
+        }
+        
+        schema {
+          query: Query
+          mutation: Mutation
+        }
+
+  # Data Source for Create Customer
+  CreateCustomerDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      Name: CreateCustomerDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt CreateCustomerFunction.Arn
+
+  # Data Source for Get Customer
+  GetCustomerDataSource:
+    Type: AWS::AppSync::DataSource
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      Name: GetCustomerDataSource
+      Type: AWS_LAMBDA
+      ServiceRoleArn: !GetAtt AppSyncServiceRole.Arn
+      LambdaConfig:
+        LambdaFunctionArn: !GetAtt GetCustomerFunction.Arn
+
+  # IAM Role for AppSync
+  AppSyncServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-${Environment}-appsync-service-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: appsync.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSAppSyncPushToCloudWatchLogs
+      Policies:
+        - PolicyName: LambdaInvokeAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt CreateCustomerFunction.Arn
+                  - !GetAtt GetCustomerFunction.Arn
+
+  # Resolver for Create Customer Mutation
+  CreateCustomerResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      TypeName: Mutation
+      FieldName: createCustomer
+      DataSourceName: !GetAtt CreateCustomerDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "arguments": $util.toJson($ctx.arguments),
+            "identity": $util.toJson($ctx.identity),
+            "source": $util.toJson($ctx.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        #if($ctx.error)
+          $util.error($ctx.error.message, $ctx.error.type)
+        #end
+        $util.toJson($ctx.result)
+
+  # Resolver for Get Customer Query
+  GetCustomerResolver:
+    Type: AWS::AppSync::Resolver
+    Properties:
+      ApiId: !GetAtt AppSyncAPI.ApiId
+      TypeName: Query
+      FieldName: getCustomer
+      DataSourceName: !GetAtt GetCustomerDataSource.Name
+      RequestMappingTemplate: |
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "arguments": $util.toJson($ctx.arguments),
+            "identity": $util.toJson($ctx.identity),
+            "source": $util.toJson($ctx.source)
+          }
+        }
+      ResponseMappingTemplate: |
+        #if($ctx.error)
+          $util.error($ctx.error.message, $ctx.error.type)
+        #end
+        $util.toJson($ctx.result)
+
+  # Lambda Permission for AppSync
+  CreateCustomerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateCustomerFunction
+      Action: lambda:InvokeFunction
+      Principal: appsync.amazonaws.com
+      SourceArn: !GetAtt AppSyncAPI.Arn
+
+  GetCustomerLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetCustomerFunction
+      Action: lambda:InvokeFunction
+      Principal: appsync.amazonaws.com
+      SourceArn: !GetAtt AppSyncAPI.Arn
+
+Outputs:
+  AppSyncApiUrl:
+    Description: AppSync GraphQL API URL
+    Value: !GetAtt AppSyncAPI.GraphQLUrl
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-appsync-url'
+
+  AppSyncApiKey:
+    Description: AppSync API Key
+    Value: !GetAtt AppSyncAPIKey.ApiKey
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-appsync-key'
+
+  DynamoDBTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref CustomersTable
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-dynamodb-table'
+
+  StackName:
+    Description: CloudFormation Stack Name
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-stack-name' 
