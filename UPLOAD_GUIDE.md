@@ -11,10 +11,10 @@ Foreman supports multiple ways to upload and process CSV files, from simple CLI 
 ### **Quick Start:**
 ```bash
 # Process a local CSV file
-python main_v2.py --file sample.csv --submit
+python main.py --file sample.csv --submit
 
 # Auto-detects data type and processes
-python main_v2.py --file sample_projects.csv --submit
+python main.py --file sample_projects.csv --submit
 ```
 
 ### **Features:**
@@ -155,13 +155,13 @@ echo "🔄 Processing started automatically..."
 ### **Manual Model Selection:**
 ```bash
 # Force specific model
-python main_v2.py --file data.csv --model customer --submit
-python main_v2.py --file data.csv --model project --submit
+python main.py --file data.csv --model customer --submit
+python main.py --file data.csv --model project --submit
 ```
 
 ### **List Available Models:**
 ```bash
-python main_v2.py --list-models
+python main.py --list-models
 # Output:
 # 📋 Available Models:
 #   - customer
@@ -199,13 +199,13 @@ Office Renovation,Complete renovation,2024-01-15,2024-06-30,In Progress,50000,CU
 ### **Local Processing:**
 ```bash
 # Test validation only
-python main_v2.py --file sample.csv --dry-run
+python main.py --file sample.csv --dry-run
 
 # Submit to GraphQL
-python main_v2.py --file sample.csv --submit
+python main.py --file sample.csv --submit
 
 # List available models
-python main_v2.py --list-models
+python main.py --list-models
 ```
 
 ### **Web Interface:**
