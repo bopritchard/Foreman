@@ -55,10 +55,6 @@ Resources:
           import tempfile
           from datetime import datetime
           
-          # Import Foreman modules (would need to be packaged)
-          # from models.registry import ModelRegistry
-          # from gql_client_v2 import GraphQLClient
-          
           s3 = boto3.client('s3')
           cloudwatch = boto3.client('cloudwatch')
           
@@ -169,7 +165,7 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                   - s3:CopyObject
-                Resource: !Sub '${CSVUploadBucket}/*'
+                Resource: !Sub 'arn:aws:s3:::${CSVUploadBucket}/*'
         - PolicyName: CloudWatchMetrics
           PolicyDocument:
             Version: '2012-10-17'
@@ -178,20 +174,6 @@ Resources:
                 Action:
                   - cloudwatch:PutMetricData
                 Resource: '*'
-
-  # S3 Event Notification
-  S3EventNotification:
-    Type: AWS::S3::BucketNotification
-    Properties:
-      Bucket: !Ref CSVUploadBucket
-      LambdaConfigurations:
-        - Event: s3:ObjectCreated:*
-          Filter:
-            S3Key:
-              Rules:
-                - Name: suffix
-                  Value: .csv
-          Function: !GetAtt S3ProcessorFunction.Arn
 
   # Lambda Permission for S3
   S3LambdaPermission:
