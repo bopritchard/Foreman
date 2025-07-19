@@ -193,7 +193,7 @@ Resources:
                           formData.append('file', fileInput.files[0]);
                           
                                                      try {
-                               const response = await fetch('/', {
+                               const response = await fetch(window.location.href, {
                                    method: 'POST',
                                    body: formData
                                });
