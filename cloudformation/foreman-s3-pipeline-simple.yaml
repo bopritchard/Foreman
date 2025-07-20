@@ -147,7 +147,9 @@ Resources:
                           }
                           
                           # Write to DynamoDB
-                          table.put_item(Item=item)
+                          print(f"Attempting to write customer: {customer_id}")
+                          response = table.put_item(Item=item)
+                          print(f"DynamoDB response: {response}")
                           records_processed += 1
                           print(f"Processed customer: {customer_id}")
                           
