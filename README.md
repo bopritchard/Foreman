@@ -1,6 +1,6 @@
 # 🛠️ Foreman - Data Onboarding Platform
 
-A robust data onboarding platform that ingests CSV files, validates data, and submits to AWS AppSync GraphQL API with DynamoDB backend.
+A robust data onboarding platform that ingests CSV files, validates data, and submits to AWS AppSync GraphQL API with DynamoDB backend. Features automated S3 processing, web interface, and advanced duplicate prevention.
 
 ## 🏗️ Architecture
 
@@ -15,6 +15,11 @@ A robust data onboarding platform that ingests CSV files, validates data, and su
                    │ Validation  │    │   Lambda    │
                    │   Engine    │    │  Resolvers  │
                    └─────────────┘    └─────────────┘
+
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Web UI    │───▶│   S3 Bucket │───▶│   Lambda    │
+│             │    │             │    │  Processor  │
+└─────────────┘    └─────────────┘    └─────────────┘
 ```
 
 ## 🚀 Quick Start
@@ -37,25 +42,25 @@ pip install -r requirements.txt
 2. **Deploy AWS Infrastructure:**
 ```bash
 # Deploy core infrastructure
-./deploy.sh
+./scripts/deploy.sh
 
-# Deploy S3 pipeline (optional)
-./deploy-s3-pipeline.sh
+# Deploy S3 pipeline
+./scripts/deploy-s3-pipeline-simple.sh
 
-# Deploy web interface (optional)
-./deploy-web-simple.sh
+# Deploy web interface
+./scripts/deploy-web-simple.sh
 ```
 
 3. **Access the platform:**
 ```bash
 # Local CLI processing
-python main.py --file sample.csv --submit
+python main.py --file samples/customers_valid.csv --submit
 
-# Web interface (if deployed)
+# Web interface
 # Open: https://u26lyxxmqh.execute-api.us-east-1.amazonaws.com/prod
 
-# S3 automated processing (if deployed)
-aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
+# S3 automated processing
+aws s3 cp samples/customers_valid.csv s3://foreman-dev-csv-uploads/
 ```
 
 ## 📁 Project Structure
@@ -65,26 +70,29 @@ Foreman/
 ├── main.py                 # CLI entry point
 ├── gql_client.py          # GraphQL client
 ├── models/                 # Data models (Customer, Project, etc.)
-├── web_upload.py          # Local Flask web interface
 ├── validator.py            # Data validation utilities
 ├── mapper.py               # Field mapping utilities
 ├── requirements.txt        # Python dependencies
 ├── scripts/                # Deployment and utility scripts
 │   ├── deploy.sh              # Core AWS deployment script
-│   ├── deploy-s3-pipeline.sh  # S3 pipeline deployment
+│   ├── deploy-s3-pipeline-simple.sh  # S3 pipeline deployment
 │   ├── deploy-web-simple.sh   # Web interface deployment
 │   ├── get-outputs.py         # Stack output retrieval
-│   └── cleanup-nested-failed.sh # S3 cleanup utilities
-├── samples/                # Sample data files
-│   ├── sample.csv             # Sample customer data
-│   ├── sample_projects.csv    # Sample project data
-│   └── test_*.csv             # Test data files
+│   ├── cleanup-nested-failed.sh # S3 cleanup utilities
+│   └── list-samples.sh        # List available sample files
+├── samples/                # Comprehensive test data files
+│   ├── customers_valid.csv        # Valid customer data
+│   ├── customers_large.csv        # Large dataset (100+ records)
+│   ├── customers_medium.csv       # Medium dataset
+│   ├── customers_small.csv        # Small dataset
+│   ├── customers_with_duplicates.csv # Dataset with duplicates
+│   ├── customers_invalid.csv      # Invalid data for testing
+│   └── customers_test_duplicates.csv # Test duplicate detection
 ├── cloudformation/         # AWS infrastructure templates
 │   ├── foreman-core.yaml      # Core AWS infrastructure
-│   ├── foreman-s3-pipeline.yaml # S3 processing pipeline
+│   ├── foreman-s3-pipeline-simple.yaml # S3 processing pipeline
 │   └── foreman-web-simple.yaml  # Web interface
 ├── UPLOAD_GUIDE.md        # Comprehensive upload guide
-├── ROADMAP.md             # Future implementation phases
 └── README.md              # This file
 ```
 
@@ -99,42 +107,57 @@ Foreman/
 - ✅ DynamoDB persistence
 - ✅ Multiple upload methods (CLI, Web, S3)
 
+### Advanced Features
+- ✅ **File Hash Duplicate Prevention** - Prevents duplicate file uploads
+- ✅ **Email Uniqueness** - GSI-based email validation with fallback
+- ✅ **Real-time Processing** - S3 event-driven automated processing
+- ✅ **Web Interface** - User-friendly upload interface with live status
+- ✅ **Comprehensive Test Data** - Multiple sample files for testing
+- ✅ **Active Visual Feedback** - Spinning indicators and progress dots
+
 ### AWS Infrastructure
 - ✅ AppSync GraphQL API with API key authentication
-- ✅ DynamoDB table for customers with point-in-time recovery
+- ✅ DynamoDB table with GSI for email uniqueness
 - ✅ Lambda resolvers with proper IAM permissions
 - ✅ S3 bucket with automated processing pipeline
-- ✅ API Gateway web interface
+- ✅ API Gateway web interface with active feedback
 - ✅ IAM roles and permissions (AppSync → Lambda → DynamoDB)
 - ✅ CloudFormation deployment with exports
 - ✅ Environment variable management
 
 ## 📊 Data Flow
 
-### Local Processing:
+### Local Processing (with pandas):
 1. **CSV Loading**: Reads CSV file and shows preview
 2. **Auto-detection**: Identifies data type (Customer, Project, etc.)
 3. **Validation**: Validates each row for data quality
 4. **GraphQL Submission**: Submits valid data to AppSync
 5. **Persistence**: Data stored in DynamoDB
 
-### S3 Automated Processing:
+### S3 Automated Processing (native CSV):
 1. **File Upload**: CSV uploaded to S3 bucket
-2. **Event Trigger**: S3 event triggers Lambda function
-3. **Auto-detection**: Lambda identifies data type
-4. **Processing**: Validates and processes data
-5. **GraphQL Submission**: Submits to AppSync API
-6. **File Management**: Moves processed files to processed/failed folders
+2. **Hash Calculation**: MD5 hash computed for duplicate detection
+3. **Duplicate Check**: Verifies if file content already processed
+4. **Event Trigger**: S3 event triggers Lambda function
+5. **Processing**: Validates and processes data with email uniqueness
+6. **GraphQL Submission**: Submits to AppSync API
+7. **File Management**: Moves processed files to processed/failed folders
+
+### Web Interface Processing:
+1. **File Upload**: User uploads CSV through web interface
+2. **Real-time Feedback**: Active spinner and progress indicators
+3. **Status Polling**: Continuous status checking with visual feedback
+4. **Result Display**: Shows processing results or duplicate detection
 
 ## 🎯 Usage Examples
 
 ### Local CLI Processing
 ```bash
 # Dry run (validation only)
-python main.py --file samples/sample.csv --dry-run
+python main.py --file samples/customers_valid.csv --dry-run
 
 # Submit to GraphQL
-python main.py --file samples/sample.csv --submit
+python main.py --file samples/customers_valid.csv --submit
 
 # List available models
 python main.py --list-models
@@ -142,49 +165,51 @@ python main.py --list-models
 
 ### Web Interface
 ```bash
-# Start local web server
-python web_upload.py
-
-# Or access deployed web interface
+# Access deployed web interface
 # https://u26lyxxmqh.execute-api.us-east-1.amazonaws.com/prod
 ```
 
 ### S3 Automated Processing
 ```bash
 # Upload to S3 (triggers automatic processing)
-aws s3 cp samples/sample.csv s3://foreman-dev-csv-uploads/
+aws s3 cp samples/customers_valid.csv s3://foreman-dev-csv-uploads/
+
+# Check processed files
+aws s3 ls s3://foreman-dev-csv-uploads/processed/
 ```
 
 ### Sample Output
 ```
-📂 Loading file: sample.csv
+📂 Loading file: customers_valid.csv
 ✅ CSV Loaded.
 
 📊 Preview (first 5 rows):
-        full_name                                  email  ...         phone   joined_on
-0  David Harrison  david.harrison@turnerconstruction.com  ...  212-555-0101  2022-11-03
-1   Sarah Bennett              sarah.bennett@bechtel.com  ...  415-555-0134  2023-01-14
+        name                                    email  ...         phone   signupDate
+0  Alice Cooper              alice.cooper@test.com  ...  555-123-4567  2023-01-15
+1    Bob Smith                bob.smith@test.com  ...  555-234-5678  2023-02-20
 
 🔁 Mapping fields...
 🗺️ Columns after mapping:
-Index(['name', 'customerEmail', 'companyName', 'phone', 'signupDate'], dtype='object')
+Index(['name', 'email', 'phone', 'signupDate'], dtype='object')
 
 🚀 Submit mode: Submitting to GraphQL...
-✅ Row 1: Customer created with ID dd8b43b6-2705-4f66-a4ad-d97313556a51
-✅ Row 2: Customer created with ID 91aaad65-2a9a-4f2e-8622-880f8853a0d3
+✅ Row 1: Customer created with ID customer_20250720_123456_0
+✅ Row 2: Customer created with ID customer_20250720_123456_1
 
 📊 Submission Summary:
-  ✅ Successful: 10
+  ✅ Successful: 3
   ❌ Failed: 0
-  📈 Total: 10
+  📈 Total: 3
 ```
 
 ## 🔐 AWS Configuration
 
 The deployment creates:
 - **AppSync GraphQL API** with API key authentication
-- **DynamoDB table** for customer data
-- **Lambda functions** for GraphQL resolvers
+- **DynamoDB table** with GSI for email uniqueness
+- **Lambda functions** for GraphQL resolvers and S3 processing
+- **S3 bucket** with automated processing pipeline
+- **API Gateway** web interface with active feedback
 - **IAM roles** with minimal required permissions
 
 ### Environment Variables
@@ -195,46 +220,71 @@ After deployment, your `.env` file will be updated with:
 
 ## 🧪 Testing
 
-### Local Testing
+### Comprehensive Test Data
 ```bash
-# Test with sample data
-python main.py --file samples/sample.csv --dry-run
-python main.py --file samples/sample.csv --submit
+# List available test files
+./scripts/list-samples.sh
+
+# Test with different scenarios
+python main.py --file samples/customers_valid.csv --submit
+python main.py --file samples/customers_with_duplicates.csv --submit
+python main.py --file samples/customers_invalid.csv --submit
+```
+
+### Web Interface Testing
+1. Upload `samples/customers_valid.csv` - Should process successfully
+2. Upload same file again - Should show "Duplicate File Skipped"
+3. Upload `samples/customers_large.csv` - Should process 100+ records
+
+### S3 Pipeline Testing
+```bash
+# Test duplicate prevention
+aws s3 cp samples/customers_small.csv s3://foreman-dev-csv-uploads/
+aws s3 cp samples/customers_small.csv s3://foreman-dev-csv-uploads/duplicate.csv
+# Second upload should be skipped due to same content
 ```
 
 ### AWS Console Access
 - **AppSync Console**: View GraphQL API and test queries
-- **DynamoDB Console**: View stored customer data
+- **DynamoDB Console**: View stored customer data with GSI
 - **CloudFormation Console**: Monitor infrastructure deployment
+- **S3 Console**: Check processed/failed files
 
 ## 🔄 Development Workflow
 
 1. **Local Development**: Use `--dry-run` to test validation
-2. **Deploy Changes**: Run `./deploy.sh` to update infrastructure
+2. **Deploy Changes**: Run `./scripts/deploy.sh` to update infrastructure
 3. **Test Integration**: Use `--submit` to test GraphQL submission
 4. **Monitor**: Check AWS CloudWatch logs for Lambda execution
 
-## 📈 Next Steps
+## 📈 Current Status ✅
 
-### Current Status ✅
-- **Phase 1 Complete**: Core infrastructure deployed and working
-- **Phase 2 Complete**: S3 pipeline with automated processing
-- **Phase 3 Complete**: Web interface deployed to AWS
-- **Multiple upload methods** available (CLI, Web, S3)
-- **Auto-detection** of data types (Customer, Project)
-- **Scalable architecture** ready for production
+### Phase 1 Complete: Core Infrastructure
+- ✅ AppSync GraphQL API deployed
+- ✅ DynamoDB table with GSI for email uniqueness
+- ✅ Lambda resolvers with proper IAM permissions
+- ✅ Local CLI processing with pandas
 
-### Planned Enhancements (See ROADMAP.md)
-- [ ] **Phase 4**: ECS containerization for scalable deployment
-- [ ] **Phase 5**: Step Functions orchestration for complex workflows
-- [ ] **Phase 6**: Advanced features (multi-region, monitoring, security)
-- [ ] **Phase 7**: Additional data models (Jobs, Invoices, etc.)
+### Phase 2 Complete: S3 Pipeline
+- ✅ S3 bucket with automated processing
+- ✅ Lambda function for S3 event processing
+- ✅ File hash duplicate prevention
+- ✅ Email uniqueness checking with GSI
+- ✅ Native CSV processing (no pandas dependency)
 
-### Infrastructure Scaling
-- [ ] Multi-region deployment
-- [ ] CloudWatch monitoring and alerting
-- [ ] Auto-scaling configuration
-- [ ] Backup and disaster recovery
+### Phase 3 Complete: Web Interface
+- ✅ API Gateway web interface deployed
+- ✅ Active visual feedback with spinners
+- ✅ Real-time status polling
+- ✅ Duplicate detection messaging
+- ✅ Responsive design
+
+### Advanced Features
+- ✅ **File Hash Duplicate Prevention** - MD5-based content detection
+- ✅ **Email Uniqueness** - GSI with scan fallback
+- ✅ **Comprehensive Test Data** - Multiple scenarios covered
+- ✅ **Active Visual Feedback** - Spinning indicators and progress dots
+- ✅ **Production Ready** - Scalable, reliable, cost-effective
 
 ## 🛠️ Troubleshooting
 
@@ -250,42 +300,56 @@ pip install python-dotenv
 aws configure
 ```
 
-**CloudFormation deployment fails**
-- Check AWS credentials
-- Verify region is `us-east-1`
-- Ensure sufficient IAM permissions
-
-### Debug Commands
+**File processing fails**
 ```bash
-# Check AWS credentials
-aws sts get-caller-identity
+# Check S3 bucket for failed files
+aws s3 ls s3://foreman-dev-csv-uploads/failed/
 
-# List CloudFormation stacks
-aws cloudformation list-stacks --region us-east-1
-
-# Get stack outputs and update .env
-python get-outputs.py
-
-# Test AppSync endpoint
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -H "x-api-key: YOUR_API_KEY" \
-  -d '{"query":"query { getCustomer(id: \"test\") { id name email } }"}' \
-  YOUR_APPSYNC_URL
+# Check Lambda logs
+aws logs tail /aws/lambda/foreman-dev-s3-processor --follow
 ```
 
-## 📄 License
+**Web interface not responding**
+```bash
+# Check API Gateway logs
+aws logs tail /aws/lambda/foreman-dev-web-api --follow
+```
 
-This project is for demonstration purposes.
+## 🏆 Best Practices Implemented
 
-## 🤝 Contributing
+### Serverless Architecture
+- **Native CSV Processing**: Fast, lightweight, cost-effective
+- **No Pandas Dependency**: Faster cold starts, smaller packages
+- **Event-Driven**: S3 triggers for automated processing
+- **Scalable**: Auto-scaling Lambda functions
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+### Data Integrity
+- **File Hash Prevention**: Prevents duplicate file processing
+- **Email Uniqueness**: GSI-based validation with fallback
+- **Comprehensive Validation**: Row-by-row error checking
+- **Error Handling**: Graceful failure with detailed messages
+
+### User Experience
+- **Active Feedback**: Spinning indicators and progress dots
+- **Real-time Status**: Live polling with visual updates
+- **Clear Messaging**: Duplicate detection and error reporting
+- **Responsive Design**: Works on all devices
+
+## 🚀 Next Steps
+
+### Planned Enhancements
+- [ ] **Multi-region deployment** for global availability
+- [ ] **CloudWatch monitoring** with custom dashboards
+- [ ] **Step Functions orchestration** for complex workflows
+- [ ] **Additional data models** (Jobs, Invoices, etc.)
+- [ ] **Advanced analytics** and reporting features
+
+### Infrastructure Scaling
+- [ ] Auto-scaling configuration
+- [ ] Backup and disaster recovery
+- [ ] Security hardening and compliance
+- [ ] Performance optimization
 
 ---
 
-**Built with ❤️ for AWS infrastructure demonstration** 
+**🎯 Foreman is production-ready with advanced features, comprehensive testing, and scalable architecture!** 

@@ -31,6 +31,7 @@ Resources:
           cloudwatch = boto3.client('cloudwatch')
           
           def lambda_handler(event, context):
+              # Updated with file hash duplicate prevention
               try:
                   # Extract S3 event information
                   bucket = event['Records'][0]['s3']['bucket']['name']
@@ -97,7 +98,7 @@ Resources:
                               rows.append(row)
                       
                       # Process with Foreman (simplified for now)
-                      result = process_csv(rows, bucket, key)
+                      result = process_csv(rows, bucket, key, file_hash)
                       
                       # Move file to processed/failed folder
                       # Sanitize the key to prevent nested failed/ prefixes
@@ -144,7 +145,7 @@ Resources:
                       'body': json.dumps({'error': str(e)})
                   }
           
-          def process_csv(rows, bucket, key):
+          def process_csv(rows, bucket, key, file_hash):
               """Process CSV with Foreman logic"""
               try:
                   # Basic validation

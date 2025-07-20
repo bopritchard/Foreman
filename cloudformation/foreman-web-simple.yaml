@@ -173,6 +173,50 @@ Resources:
                           border-radius: 5px;
                           border: 1px solid #f5c6cb;
                       }
+                      .processing-indicator {
+                          text-align: center;
+                          padding: 20px;
+                      }
+                      .spinner {
+                          width: 40px;
+                          height: 40px;
+                          border: 4px solid #f3f3f3;
+                          border-top: 4px solid #007bff;
+                          border-radius: 50%;
+                          animation: spin 1s linear infinite;
+                          margin: 0 auto 15px;
+                      }
+                      @keyframes spin {
+                          0% { transform: rotate(0deg); }
+                          100% { transform: rotate(360deg); }
+                      }
+                      .processing-details {
+                          color: #666;
+                          font-size: 14px;
+                          margin: 10px 0;
+                      }
+                      .progress-dots {
+                          margin-top: 15px;
+                      }
+                      .dot {
+                          display: inline-block;
+                          width: 8px;
+                          height: 8px;
+                          border-radius: 50%;
+                          background-color: #007bff;
+                          margin: 0 3px;
+                          animation: pulse 1.5s ease-in-out infinite;
+                      }
+                      .dot:nth-child(2) {
+                          animation-delay: 0.2s;
+                      }
+                      .dot:nth-child(3) {
+                          animation-delay: 0.4s;
+                      }
+                      @keyframes pulse {
+                          0%, 100% { opacity: 0.3; transform: scale(1); }
+                          50% { opacity: 1; transform: scale(1.2); }
+                      }
                   </style>
               </head>
               <body>
@@ -190,6 +234,15 @@ Resources:
                               <li>Data is validated and submitted to GraphQL API</li>
                               <li>Results are stored in DynamoDB</li>
                           </ol>
+                          <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 14px;">
+                              <strong>💡 Processing Details:</strong>
+                              <ul style="margin: 5px 0 0 20px;">
+                                  <li><strong>AWS Lambda:</strong> Uses native Python CSV processing (fast, lightweight)</li>
+                                  <li><strong>Local Development:</strong> Uses pandas for advanced data manipulation</li>
+                                  <li><strong>Duplicate Prevention:</strong> File hash detection prevents duplicate uploads</li>
+                                  <li><strong>Email Validation:</strong> GSI-based uniqueness checking with fallback</li>
+                              </ul>
+                          </div>
                       </div>
                       
                       <form id="uploadForm" class="upload-form">
@@ -200,20 +253,20 @@ Resources:
                               <input type="file" name="file" accept=".csv" required>
                           </div>
                           
-                          <button type="submit" class="submit-btn">🚀 Upload & Process</button>
-                      </form>
-                      
-                      <div class="status">
-                          <h3>📊 Processing Status</h3>
-                          <p><strong>S3 Bucket:</strong> foreman-dev-csv-uploads</p>
-                          <p><strong>Region:</strong> us-east-1</p>
-                          <p><strong>Auto-detection:</strong> Customer, Project, and other models</p>
-                      </div>
-                      
-                      <div id="results" class="results" style="display: none;">
-                          <h3>📈 Upload Results</h3>
-                          <div id="resultsContent"></div>
-                      </div>
+                                                <button type="submit" class="submit-btn">🚀 Upload & Process</button>
+                  </form>
+                  
+                  <div id="results" class="results" style="display: none;">
+                      <h3>📈 Upload Results</h3>
+                      <div id="resultsContent"></div>
+                  </div>
+                  
+                  <div class="status">
+                      <h3>📊 Processing Status</h3>
+                      <p><strong>S3 Bucket:</strong> foreman-dev-csv-uploads</p>
+                      <p><strong>Region:</strong> us-east-1</p>
+                      <p><strong>Auto-detection:</strong> Customer, Project, and other models</p>
+                  </div>
                   </div>
                   
                   <script>
@@ -272,7 +325,18 @@ Resources:
                           const resultsContent = document.getElementById('resultsContent');
                           
                           resultsDiv.style.display = 'block';
-                          resultsContent.innerHTML = '<p>🔄 Checking processing status...</p>';
+                          resultsContent.innerHTML = `
+                              <div class="processing-indicator">
+                                  <div class="spinner"></div>
+                                  <p>🔄 Processing your file...</p>
+                                  <p class="processing-details">Checking S3 bucket and DynamoDB for results</p>
+                                  <div class="progress-dots">
+                                      <span class="dot"></span>
+                                      <span class="dot"></span>
+                                      <span class="dot"></span>
+                                  </div>
+                              </div>
+                          `;
                           
                           // Poll every 3 seconds for up to 60 seconds
                           let attempts = 0;
@@ -306,21 +370,29 @@ Resources:
                                   if (attempts >= maxAttempts) {
                                       clearInterval(pollInterval);
                                       resultsContent.innerHTML = `
-                                          <p>⏰ Processing timeout (60 seconds).</p>
-                                          <p><strong>What to check:</strong></p>
-                                          <ul>
-                                              <li>S3 bucket: <code>foreman-dev-csv-uploads</code></li>
-                                              <li>Look for your file in <code>processed/</code> folder</li>
-                                              <li>Check DynamoDB table: <code>foreman-dev-customers</code></li>
-                                          </ul>
-                                          <p><em>Processing may still be running in the background.</em></p>
+                                          <div class="processing-indicator">
+                                              <p>⏰ Processing timeout (60 seconds)</p>
+                                              <p class="processing-details">The system is still working in the background</p>
+                                              <p><strong>What to check:</strong></p>
+                                              <ul>
+                                                  <li>S3 bucket: <code>foreman-dev-csv-uploads</code></li>
+                                                  <li>Look for your file in <code>processed/</code> folder</li>
+                                                  <li>Check DynamoDB table: <code>foreman-dev-customers</code></li>
+                                              </ul>
+                                              <p><em>Processing may still be running in the background.</em></p>
+                                          </div>
                                       `;
                                   }
                               } catch (error) {
                                   console.error('Polling error:', error);
                                   if (attempts >= maxAttempts) {
                                       clearInterval(pollInterval);
-                                      resultsContent.innerHTML = '<p>❌ Error checking status. Check S3 bucket manually.</p>';
+                                      resultsContent.innerHTML = `
+                                          <div class="processing-indicator">
+                                              <p>❌ Error checking status</p>
+                                              <p class="processing-details">Check S3 bucket manually for results</p>
+                                          </div>
+                                      `;
                                   }
                               }
                           }, 3000);
@@ -333,11 +405,23 @@ Resources:
                               <div class="result-summary">
                                   <h4>📊 Processing Complete!</h4>
                                   <p><strong>File:</strong> ${status.s3_key}</p>
+                          `;
+                          
+                          if (status.status === 'duplicate_skipped') {
+                              html += `
+                                  <p><strong>Status:</strong> ⚠️ Duplicate File Skipped</p>
+                                  <p><strong>Message:</strong> ${status.message || 'File content was already processed previously'}</p>
+                                  <p><strong>Records Processed:</strong> 0 (duplicate content detected)</p>
+                              `;
+                          } else {
+                              html += `
                                   <p><strong>Status:</strong> ${status.success ? '✅ Success' : '❌ Failed'}</p>
                                   <p><strong>Records Processed:</strong> ${status.records_processed}</p>
                                   <p><strong>Errors:</strong> ${status.errors ? status.errors.length : 0}</p>
-                              </div>
-                          `;
+                              `;
+                          }
+                          
+                          html += `</div>`;
                           
                           if (status.errors && status.errors.length > 0) {
                               html += `
@@ -599,32 +683,37 @@ Resources:
                   dynamodb = boto3.resource('dynamodb')
                   table = dynamodb.Table('foreman-dev-customers')
                   
-                  # Count records from this specific upload by matching the date and approximate time
-                  # Extract date from s3_key (e.g., "web-upload-20250720_011825-test.csv" -> "20250720")
-                  date_from_key = None
-                  if s3_key and 'web-upload-' in s3_key:
-                      try:
-                          # Extract date part from s3_key
-                          parts = s3_key.split('-')
-                          if len(parts) >= 3:
-                              full_timestamp = parts[2]
-                              date_from_key = full_timestamp[:8]  # Get just the date part (YYYYMMDD)
-                      except:
-                          date_from_key = None
-                  
+                  # Check if this specific file was processed by looking for records with this source_file
                   response = table.scan()
                   records_from_this_upload = []
                   
-                  # Count only the most recent records (likely from this upload)
-                  # Sort by ID to get the most recent records
-                  all_records = [item for item in response['Items'] if item and 'id' in item]
-                  all_records.sort(key=lambda x: x.get('id', ''), reverse=True)
-                  
-                  # Take the most recent records (assuming they're from this upload)
-                  # This is a simple heuristic - the most recent records are likely from the current upload
-                  records_from_this_upload = all_records[:10]  # Assume max 10 records per upload
+                  # Find records that were created from this specific file upload
+                  for item in response['Items']:
+                      if item and 'source_file' in item and item['source_file'] == s3_key:
+                          records_from_this_upload.append(item)
                   
                   records_processed = len(records_from_this_upload)
+                  
+                  # Check if this was a duplicate file upload
+                  # If file was processed but no records were created, it was likely a duplicate
+                  if status == 'processed' and records_processed == 0:
+                      # This was likely a duplicate file that was skipped
+                      return {
+                          'statusCode': 200,
+                          'headers': {
+                              'Content-Type': 'application/json',
+                              'Access-Control-Allow-Origin': '*'
+                          },
+                          'body': json.dumps({
+                              'processed': True,
+                              'success': True,
+                              's3_key': s3_key,
+                              'status': 'duplicate_skipped',
+                              'records_processed': 0,
+                              'message': 'File was skipped - duplicate content detected',
+                              'errors': []
+                          })
+                      }
                   
                   return {
                       'statusCode': 200,
