@@ -43,7 +43,11 @@ Resources:
                           'body': get_html_content()
                       }
                   elif http_method == 'POST':
-                      return handle_upload(event)
+                      # Check if it's a status check request
+                      if event.get('path') == '/check-status':
+                          return handle_status_check(event)
+                      else:
+                          return handle_upload(event)
                   else:
                       return {
                           'statusCode': 404,
@@ -146,6 +150,25 @@ Resources:
                           background: #f8f9fa;
                           border-radius: 5px;
                       }
+                      .results {
+                          margin-top: 30px;
+                          padding: 20px;
+                          background: #e8f5e8;
+                          border-radius: 5px;
+                          border: 1px solid #c3e6cb;
+                      }
+                      .result-summary {
+                          background: white;
+                          padding: 15px;
+                          border-radius: 5px;
+                          margin-bottom: 15px;
+                      }
+                      .error-details {
+                          background: #f8d7da;
+                          padding: 15px;
+                          border-radius: 5px;
+                          border: 1px solid #f5c6cb;
+                      }
                   </style>
               </head>
               <body>
@@ -182,9 +205,16 @@ Resources:
                           <p><strong>Region:</strong> us-east-1</p>
                           <p><strong>Auto-detection:</strong> Customer, Project, and other models</p>
                       </div>
+                      
+                      <div id="results" class="results" style="display: none;">
+                          <h3>📈 Upload Results</h3>
+                          <div id="resultsContent"></div>
+                      </div>
                   </div>
                   
                   <script>
+                      let currentUpload = null;
+                      
                       document.getElementById('uploadForm').addEventListener('submit', async function(e) {
                           e.preventDefault();
                           
@@ -192,16 +222,25 @@ Resources:
                           const fileInput = document.querySelector('input[type="file"]');
                           formData.append('file', fileInput.files[0]);
                           
-                                                     try {
-                               const response = await fetch(window.location.href, {
-                                   method: 'POST',
-                                   body: formData
-                               });
+                          try {
+                              const response = await fetch(window.location.href, {
+                                  method: 'POST',
+                                  body: formData
+                              });
                               
                               const result = await response.json();
                               
                               if (response.ok) {
                                   showMessage('✅ ' + result.message, 'success');
+                                  
+                                  // Start polling for results
+                                  if (result.s3_key) {
+                                      currentUpload = {
+                                          s3_key: result.s3_key,
+                                          timestamp: result.timestamp
+                                      };
+                                      startPolling();
+                                  }
                               } else {
                                   showMessage('❌ ' + result.error, 'error');
                               }
@@ -220,6 +259,85 @@ Resources:
                           setTimeout(() => {
                               alertDiv.remove();
                           }, 5000);
+                      }
+                      
+                      function startPolling() {
+                          if (!currentUpload) return;
+                          
+                          const resultsDiv = document.getElementById('results');
+                          const resultsContent = document.getElementById('resultsContent');
+                          
+                          resultsDiv.style.display = 'block';
+                          resultsContent.innerHTML = '<p>🔄 Checking processing status...</p>';
+                          
+                          // Poll every 2 seconds for up to 30 seconds
+                          let attempts = 0;
+                          const maxAttempts = 15;
+                          
+                          const pollInterval = setInterval(async () => {
+                              attempts++;
+                              
+                              try {
+                                  // Check S3 for processed file
+                                  const response = await fetch('/check-status', {
+                                      method: 'POST',
+                                      headers: {
+                                          'Content-Type': 'application/json'
+                                      },
+                                      body: JSON.stringify({
+                                          s3_key: currentUpload.s3_key,
+                                          timestamp: currentUpload.timestamp
+                                      })
+                                  });
+                                  
+                                  if (response.ok) {
+                                      const status = await response.json();
+                                      if (status.processed) {
+                                          clearInterval(pollInterval);
+                                          showResults(status);
+                                          return;
+                                      }
+                                  }
+                                  
+                                  if (attempts >= maxAttempts) {
+                                      clearInterval(pollInterval);
+                                      resultsContent.innerHTML = '<p>⏰ Processing timeout. Check S3 bucket for results.</p>';
+                                  }
+                              } catch (error) {
+                                  console.error('Polling error:', error);
+                                  if (attempts >= maxAttempts) {
+                                      clearInterval(pollInterval);
+                                      resultsContent.innerHTML = '<p>❌ Error checking status. Check S3 bucket manually.</p>';
+                                  }
+                              }
+                          }, 2000);
+                      }
+                      
+                      function showResults(status) {
+                          const resultsContent = document.getElementById('resultsContent');
+                          
+                          let html = `
+                              <div class="result-summary">
+                                  <h4>📊 Processing Complete!</h4>
+                                  <p><strong>File:</strong> ${status.s3_key}</p>
+                                  <p><strong>Status:</strong> ${status.success ? '✅ Success' : '❌ Failed'}</p>
+                                  <p><strong>Records Processed:</strong> ${status.records_processed}</p>
+                                  <p><strong>Errors:</strong> ${status.errors ? status.errors.length : 0}</p>
+                              </div>
+                          `;
+                          
+                          if (status.errors && status.errors.length > 0) {
+                              html += `
+                                  <div class="error-details">
+                                      <h5>❌ Errors:</h5>
+                                      <ul>
+                                          ${status.errors.map(error => `<li>${error}</li>`).join('')}
+                                      </ul>
+                                  </div>
+                              `;
+                          }
+                          
+                          resultsContent.innerHTML = html;
                       }
                   </script>
               </body>
@@ -317,7 +435,9 @@ Resources:
                       },
                       'body': json.dumps({
                           'message': f'File uploaded successfully! Processing started... (S3: {s3_key})',
-                          'status': 'success'
+                          'status': 'success',
+                          's3_key': s3_key,
+                          'timestamp': datetime.now().isoformat()
                       })
                   }
               except Exception as e:
@@ -331,6 +451,98 @@ Resources:
                           'error': str(e),
                           'status': 'error'
                       })
+                  }
+          
+          def handle_status_check(event):
+              try:
+                  import json
+                  
+                  # Parse the request body
+                  body = event.get('body', '{}')
+                  if event.get('isBase64Encoded', False):
+                      body = base64.b64decode(body).decode('utf-8')
+                  
+                  data = json.loads(body)
+                  s3_key = data.get('s3_key')
+                  
+                  if not s3_key:
+                      return {
+                          'statusCode': 400,
+                          'headers': {
+                              'Content-Type': 'application/json',
+                              'Access-Control-Allow-Origin': '*'
+                          },
+                          'body': json.dumps({'error': 'Missing s3_key'})
+                      }
+                  
+                  # Check if file has been processed
+                  s3 = boto3.client('s3')
+                  
+                  # Check if file exists in processed/ or failed/ folder
+                  processed_key = f"processed/{s3_key}"
+                  failed_key = f"failed/{s3_key}"
+                  
+                  try:
+                      # Try to get the processed file
+                      s3.head_object(Bucket='foreman-dev-csv-uploads', Key=processed_key)
+                      status = 'processed'
+                      success = True
+                  except:
+                      try:
+                          # Try to get the failed file
+                          s3.head_object(Bucket='foreman-dev-csv-uploads', Key=failed_key)
+                          status = 'failed'
+                          success = False
+                      except:
+                          # File not processed yet
+                          return {
+                              'statusCode': 200,
+                              'headers': {
+                                  'Content-Type': 'application/json',
+                                  'Access-Control-Allow-Origin': '*'
+                              },
+                              'body': json.dumps({
+                                  'processed': False,
+                                  'message': 'File still being processed...'
+                              })
+                          }
+                  
+                  # Get actual processing results from DynamoDB
+                  dynamodb = boto3.resource('dynamodb')
+                  table = dynamodb.Table('foreman-dev-customers')
+                  
+                  # Count records from this file
+                  response = table.scan(
+                      FilterExpression='source_file = :file',
+                      ExpressionAttributeValues={':file': s3_key}
+                  )
+                  
+                  records_processed = len(response['Items'])
+                  
+                  return {
+                      'statusCode': 200,
+                      'headers': {
+                          'Content-Type': 'application/json',
+                          'Access-Control-Allow-Origin': '*'
+                      },
+                      'body': json.dumps({
+                          'processed': True,
+                          'success': success,
+                          's3_key': s3_key,
+                          'status': status,
+                          'records_processed': records_processed,
+                          'errors': [] if success else ['File processing failed']
+                      })
+                  }
+                  
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'headers': {
+                          'Content-Type': 'application/json',
+                          'Access-Control-Allow-Origin': '*'
+                      },
+                      'body': json.dumps({'error': str(e)})
                   }
       
       Handler: index.lambda_handler
