@@ -44,7 +44,7 @@ Resources:
                       }
                   elif http_method == 'POST':
                       # Check if it's a status check request
-                      if event.get('path') == '/check-status':
+                      if event.get('path') == '/check-status' or event.get('queryStringParameters', {}).get('action') == 'check-status':
                           return handle_status_check(event)
                       else:
                           return handle_upload(event)
@@ -279,7 +279,7 @@ Resources:
                               
                               try {
                                   // Check S3 for processed file
-                                  const response = await fetch('/check-status', {
+                                  const response = await fetch('?action=check-status', {
                                       method: 'POST',
                                       headers: {
                                           'Content-Type': 'application/json'
@@ -641,6 +641,18 @@ Resources:
                   - s3:ListBucket
                   - s3:ListObjectsV2
                 Resource: 'arn:aws:s3:::foreman-dev-csv-uploads/*'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: 'arn:aws:dynamodb:us-east-1:631138567000:table/foreman-dev-customers'
 
   # API Gateway
   WebApiGateway:
@@ -668,6 +680,27 @@ Resources:
     Properties:
       RestApiId: !Ref WebApiGateway
       ResourceId: !GetAtt WebApiGateway.RootResourceId
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebApiFunction.Arn}/invocations'
+
+  # API Gateway Resource for /check-status
+  WebApiCheckStatusResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WebApiGateway
+      ParentId: !GetAtt WebApiGateway.RootResourceId
+      PathPart: check-status
+
+  # API Gateway Method for POST /check-status
+  WebApiCheckStatusMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WebApiGateway
+      ResourceId: !Ref WebApiCheckStatusResource
       HttpMethod: POST
       AuthorizationType: NONE
       Integration:
@@ -716,6 +749,7 @@ Resources:
     DependsOn:
       - WebApiMethodGet
       - WebApiMethodPost
+      - WebApiCheckStatusMethod
       - WebApiMethodHead
       - WebApiMethodOptions
     Properties:
