@@ -147,6 +147,7 @@ Resources:
                   
                   records_processed = 0
                   errors = []
+                  processed_emails = set()  # Track emails processed in this batch
                   
                   for i, row in enumerate(rows):
                       try:
@@ -160,14 +161,32 @@ Resources:
                               print(f"Error processing row {i+1}: Email is required")
                               continue
                           
-                          # Check for existing email using GSI
+                          # Check for duplicate email in current batch
+                          if email in processed_emails:
+                              error_msg = f"Row {i+1}: Email '{email}' already exists in this file"
+                              errors.append(error_msg)
+                              print(f"Error processing row {i+1}: Email already exists in this file")
+                              continue
+                          
+                          # Check for existing email in database (fallback to scan while GSI is backfilling)
                           try:
-                              # Use GSI for efficient email lookup
-                              response = table.query(
-                                  IndexName='EmailIndex',
-                                  KeyConditionExpression='email = :email',
-                                  ExpressionAttributeValues={':email': email}
-                              )
+                              # Try GSI first, fallback to scan if GSI not ready
+                              try:
+                                  response = table.query(
+                                      IndexName='EmailIndex',
+                                      KeyConditionExpression='email = :email',
+                                      ExpressionAttributeValues={':email': email}
+                                  )
+                              except Exception as gsi_error:
+                                  if 'Cannot read from backfilling' in str(gsi_error):
+                                      # GSI not ready, use scan as fallback
+                                      print(f"GSI not ready, using scan fallback for email: {email}")
+                                      response = table.scan(
+                                          FilterExpression='email = :email',
+                                          ExpressionAttributeValues={':email': email}
+                                      )
+                                  else:
+                                      raise gsi_error
                               
                               if response['Items']:
                                   existing_customer = response['Items'][0]
@@ -196,6 +215,7 @@ Resources:
                           response = table.put_item(Item=item)
                           print(f"DynamoDB response: {response}")
                           records_processed += 1
+                          processed_emails.add(email)  # Add email to processed set
                           print(f"Processed customer: {customer_id}")
                           
                       except Exception as e:

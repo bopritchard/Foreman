@@ -80,7 +80,7 @@ python web_upload.py
 aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
 
 # Upload with custom name
-aws s3 cp sample.csv s3://foreman-dev-csv-uploads/customers-2024.csv
+aws s3 cp samples/sample.csv s3://foreman-dev-csv-uploads/customers-2024.csv
 ```
 
 #### **AWS Console:**
@@ -155,8 +155,8 @@ echo "🔄 Processing started automatically..."
 ### **Manual Model Selection:**
 ```bash
 # Force specific model
-python main.py --file data.csv --model customer --submit
-python main.py --file data.csv --model project --submit
+python main.py --file samples/data.csv --model customer --submit
+python main.py --file samples/data.csv --model project --submit
 ```
 
 ### **List Available Models:**
@@ -199,10 +199,10 @@ Office Renovation,Complete renovation,2024-01-15,2024-06-30,In Progress,50000,CU
 ### **Local Processing:**
 ```bash
 # Test validation only
-python main.py --file sample.csv --dry-run
+python main.py --file samples/sample.csv --dry-run
 
 # Submit to GraphQL
-python main.py --file sample.csv --submit
+python main.py --file samples/sample.csv --submit
 
 # List available models
 python main.py --list-models
@@ -222,7 +222,7 @@ python web_upload.py
 ./deploy-s3-pipeline.sh
 
 # Upload file
-aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
+aws s3 cp samples/sample.csv s3://foreman-dev-csv-uploads/
 ```
 
 ---

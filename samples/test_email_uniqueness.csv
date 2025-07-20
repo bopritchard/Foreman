@@ -1,0 +1,5 @@
+name,email,phone,joined_on
+Test User 1,unique1@example.com,555-0001,2024-01-19
+Test User 2,unique2@example.com,555-0002,2024-01-19
+Test User 3,unique1@example.com,555-0003,2024-01-19
+Test User 4,unique3@example.com,555-0004,2024-01-19 

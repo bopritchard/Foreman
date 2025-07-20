@@ -65,21 +65,26 @@ Foreman/
 ├── main.py                 # CLI entry point
 ├── gql_client.py          # GraphQL client
 ├── models/                 # Data models (Customer, Project, etc.)
-├── sample.csv             # Sample customer data
-├── sample_projects.csv    # Sample project data
-├── deploy.sh              # Core AWS deployment script
-├── deploy-s3-pipeline.sh  # S3 pipeline deployment
-├── deploy-web-simple.sh   # Web interface deployment
-├── get-outputs.py         # Stack output retrieval
-├── requirements.txt        # Python dependencies
 ├── web_upload.py          # Local Flask web interface
-├── UPLOAD_GUIDE.md        # Comprehensive upload guide
-├── ROADMAP.md             # Future implementation phases
-├── .env                   # Environment variables
-├── cloudformation/
+├── validator.py            # Data validation utilities
+├── mapper.py               # Field mapping utilities
+├── requirements.txt        # Python dependencies
+├── scripts/                # Deployment and utility scripts
+│   ├── deploy.sh              # Core AWS deployment script
+│   ├── deploy-s3-pipeline.sh  # S3 pipeline deployment
+│   ├── deploy-web-simple.sh   # Web interface deployment
+│   ├── get-outputs.py         # Stack output retrieval
+│   └── cleanup-nested-failed.sh # S3 cleanup utilities
+├── samples/                # Sample data files
+│   ├── sample.csv             # Sample customer data
+│   ├── sample_projects.csv    # Sample project data
+│   └── test_*.csv             # Test data files
+├── cloudformation/         # AWS infrastructure templates
 │   ├── foreman-core.yaml      # Core AWS infrastructure
 │   ├── foreman-s3-pipeline.yaml # S3 processing pipeline
 │   └── foreman-web-simple.yaml  # Web interface
+├── UPLOAD_GUIDE.md        # Comprehensive upload guide
+├── ROADMAP.md             # Future implementation phases
 └── README.md              # This file
 ```
 
@@ -126,10 +131,10 @@ Foreman/
 ### Local CLI Processing
 ```bash
 # Dry run (validation only)
-python main.py --file sample.csv --dry-run
+python main.py --file samples/sample.csv --dry-run
 
 # Submit to GraphQL
-python main.py --file sample.csv --submit
+python main.py --file samples/sample.csv --submit
 
 # List available models
 python main.py --list-models
@@ -147,7 +152,7 @@ python web_upload.py
 ### S3 Automated Processing
 ```bash
 # Upload to S3 (triggers automatic processing)
-aws s3 cp sample.csv s3://foreman-dev-csv-uploads/
+aws s3 cp samples/sample.csv s3://foreman-dev-csv-uploads/
 ```
 
 ### Sample Output
@@ -193,8 +198,8 @@ After deployment, your `.env` file will be updated with:
 ### Local Testing
 ```bash
 # Test with sample data
-python main.py --file sample.csv --dry-run
-python main.py --file sample.csv --submit
+python main.py --file samples/sample.csv --dry-run
+python main.py --file samples/sample.csv --submit
 ```
 
 ### AWS Console Access
