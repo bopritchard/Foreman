@@ -13,6 +13,33 @@ Parameters:
     Description: Project name for resource naming
 
 Resources:
+  # Pandas Lambda Layer
+  PandasLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub '${ProjectName}-${Environment}-pandas-layer'
+      Description: Pandas and NumPy for data processing
+      Content:
+        S3Bucket: !Ref PandasLayerBucket
+        S3Key: pandas-layer.zip
+      CompatibleRuntimes:
+        - python3.9
+      CompatibleArchitectures:
+        - x86_64
+
+  # S3 Bucket for Pandas Layer
+  PandasLayerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Environment}-pandas-layer-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   # Lambda Function for S3 Event Processing
   S3ProcessorFunction:
     Type: AWS::Lambda::Function
@@ -146,7 +173,239 @@ Resources:
                   }
           
           def process_csv(rows, bucket, key, file_hash):
-              """Process CSV with Foreman logic"""
+              """Process CSV with Foreman logic - Hybrid processing with pandas support"""
+              try:
+                  # Check if pandas should be used
+                  use_pandas = os.environ.get('USE_PANDAS', 'false').lower() == 'true'
+                  
+                  # Determine if this is a complex operation that needs pandas
+                  is_complex_operation = len(rows) > 1000 or has_complex_columns(rows)
+                  
+                  if use_pandas and is_complex_operation:
+                      print("Using pandas for complex data processing")
+                      return process_with_pandas(rows, bucket, key, file_hash)
+                  else:
+                      print("Using native CSV processing")
+                      return process_with_native_csv(rows, bucket, key, file_hash)
+              except Exception as e:
+                  return {
+                      'success': False,
+                      'records_processed': 0,
+                      'errors': [f'Processing error: {str(e)}']
+                  }
+          
+          def has_complex_columns(rows):
+              """Check if data has complex columns that would benefit from pandas"""
+              if not rows:
+                  return False
+              
+              # Check for numeric columns, date columns, or large datasets
+              sample_row = rows[0]
+              numeric_indicators = ['amount', 'price', 'cost', 'quantity', 'count', 'number', 'id']
+              date_indicators = ['date', 'created', 'updated', 'timestamp', 'time']
+              
+              for col_name in sample_row.keys():
+                  col_lower = col_name.lower()
+                  if any(indicator in col_lower for indicator in numeric_indicators + date_indicators):
+                      return True
+              
+              return False
+          
+          def process_with_pandas(rows, bucket, key, file_hash):
+              """Process CSV using pandas for complex operations"""
+              try:
+                  import pandas as pd
+                  import numpy as np
+                  
+                  print("Starting pandas processing...")
+                  
+                  # Convert rows to DataFrame
+                  df = pd.DataFrame(rows)
+                  print(f"DataFrame shape: {df.shape}")
+                  
+                  # Basic validation
+                  if df.empty:
+                      return {
+                          'success': False,
+                          'records_processed': 0,
+                          'errors': ['CSV file is empty']
+                      }
+                  
+                  # Data quality scoring with pandas
+                  quality_score = calculate_data_quality(df)
+                  print(f"Data quality score: {quality_score}")
+                  
+                  # Statistical analysis
+                  stats = calculate_statistics(df)
+                  print(f"Statistical analysis: {stats}")
+                  
+                  # Process with enhanced validation
+                  result = process_dataframe_with_pandas(df, bucket, key, file_hash)
+                  
+                  # Add pandas-specific metrics
+                  result['pandas_used'] = True
+                  result['data_quality_score'] = quality_score
+                  result['statistics'] = stats
+                  
+                  return result
+                  
+              except ImportError:
+                  print("Pandas not available, falling back to native processing")
+                  return process_with_native_csv(rows, bucket, key, file_hash)
+              except Exception as e:
+                  print(f"Pandas processing error: {str(e)}")
+                  return process_with_native_csv(rows, bucket, key, file_hash)
+          
+          def calculate_data_quality(df):
+              """Calculate data quality score using pandas"""
+              try:
+                  total_cells = df.size
+                  null_count = df.isnull().sum().sum()
+                  completeness = (total_cells - null_count) / total_cells if total_cells > 0 else 0
+                  
+                  # Check for duplicate rows
+                  duplicates = df.duplicated().sum()
+                  uniqueness = 1 - (duplicates / len(df)) if len(df) > 0 else 1
+                  
+                  # Overall quality score (0-100)
+                  quality_score = int((completeness + uniqueness) * 50)
+                  
+                  return quality_score
+              except Exception as e:
+                  print(f"Error calculating data quality: {str(e)}")
+                  return 50  # Default score
+          
+          def calculate_statistics(df):
+              """Calculate basic statistics using pandas"""
+              try:
+                  stats = {
+                      'total_rows': len(df),
+                      'total_columns': len(df.columns),
+                      'null_values': df.isnull().sum().sum(),
+                      'duplicate_rows': df.duplicated().sum()
+                  }
+                  
+                  # Add numeric column statistics
+                  numeric_cols = df.select_dtypes(include=[np.number]).columns
+                  if len(numeric_cols) > 0:
+                      stats['numeric_columns'] = list(numeric_cols)
+                      stats['numeric_stats'] = df[numeric_cols].describe().to_dict()
+                  
+                  return stats
+              except Exception as e:
+                  print(f"Error calculating statistics: {str(e)}")
+                  return {'error': str(e)}
+          
+          def process_dataframe_with_pandas(df, bucket, key, file_hash):
+              """Process DataFrame with pandas-enhanced logic"""
+              try:
+                  # Check for required columns (enhanced with pandas)
+                  name_columns = ['name', 'full_name', 'first_name', 'customer_name']
+                  email_columns = ['email', 'email_address', 'contact_email']
+                  
+                  available_columns = list(df.columns)
+                  
+                  # Find name and email columns
+                  name_col = next((col for col in name_columns if col in available_columns), None)
+                  email_col = next((col for col in email_columns if col in available_columns), None)
+                  
+                  missing_columns = []
+                  if not name_col:
+                      missing_columns.append('name (or full_name, first_name, customer_name)')
+                  if not email_col:
+                      missing_columns.append('email (or email_address, contact_email)')
+                  
+                  if missing_columns:
+                      return {
+                          'success': False,
+                          'records_processed': 0,
+                          'errors': [f'Missing required columns: {missing_columns}']
+                      }
+                  
+                  # Clean data with pandas
+                  df_clean = df.copy()
+                  
+                  # Remove rows with empty emails
+                  df_clean = df_clean.dropna(subset=[email_col])
+                  
+                  # Remove duplicate emails within the file
+                  df_clean = df_clean.drop_duplicates(subset=[email_col])
+                  
+                  # Strip whitespace from string columns
+                  for col in df_clean.columns:
+                      if df_clean[col].dtype == 'object':
+                          df_clean[col] = df_clean[col].astype(str).str.strip()
+                  
+                  # Process records and write to DynamoDB
+                  dynamodb = boto3.resource('dynamodb')
+                  table = dynamodb.Table('foreman-dev-customers')
+                  
+                  records_processed = 0
+                  errors = []
+                  
+                  for index, row in df_clean.iterrows():
+                      try:
+                          email = str(row[email_col]).strip()
+                          name = str(row[name_col]).strip()
+                          
+                          # Skip empty emails
+                          if not email or email == 'nan':
+                              error_msg = f"Row {index+1}: Email is required"
+                              errors.append(error_msg)
+                              continue
+                          
+                          # Check for existing email in database
+                          try:
+                              response = table.query(
+                                  IndexName='EmailIndex',
+                                  KeyConditionExpression='email = :email',
+                                  ExpressionAttributeValues={':email': email}
+                              )
+                              
+                              if response['Items']:
+                                  existing_customer = response['Items'][0]
+                                  error_msg = f"Row {index+1}: Email '{email}' already exists (Customer ID: {existing_customer.get('id', 'unknown')})"
+                                  errors.append(error_msg)
+                                  continue
+                                  
+                          except Exception as scan_error:
+                              print(f"Error checking for existing email: {str(scan_error)}")
+                          
+                          # Create customer record
+                          customer_id = f"customer_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{index}"
+                          
+                          item = {
+                              'id': customer_id,
+                              'name': name,
+                              'email': email,
+                              'created_at': datetime.now().isoformat(),
+                              'source_file': key,
+                              'file_hash': file_hash
+                          }
+                          
+                          # Write to DynamoDB
+                          table.put_item(Item=item)
+                          records_processed += 1
+                          
+                      except Exception as e:
+                          error_msg = f"Row {index+1}: {str(e)}"
+                          errors.append(error_msg)
+                  
+                  return {
+                      'success': records_processed > 0,
+                      'records_processed': records_processed,
+                      'errors': errors
+                  }
+                  
+              except Exception as e:
+                  return {
+                      'success': False,
+                      'records_processed': 0,
+                      'errors': [f'Pandas processing error: {str(e)}']
+                  }
+          
+          def process_with_native_csv(rows, bucket, key, file_hash):
+              """Process CSV with native Python (original logic)"""
               try:
                   # Basic validation
                   if not rows:
@@ -279,14 +538,18 @@ Resources:
       Handler: index.lambda_handler
       Runtime: python3.9
       Timeout: 300
-      MemorySize: 512
+      MemorySize: 1024
       Role: !GetAtt S3ProcessorRole.Arn
+      Layers:
+        - !Ref PandasLayer
       Environment:
         Variables:
           ENVIRONMENT: !Ref Environment
           PROJECT_NAME: !Ref ProjectName
           GRAPHQL_URL: !ImportValue 'foreman-dev-appsync-url'
           APPSYNC_API_KEY: !ImportValue 'foreman-dev-appsync-key'
+          USE_PANDAS: "true"
+          PANDAS_MEMORY_LIMIT: "512MB"
 
   # IAM Role for S3 Processor Lambda
   S3ProcessorRole:
@@ -314,6 +577,10 @@ Resources:
                   - s3:DeleteObject
                   - s3:CopyObject
                 Resource: 'arn:aws:s3:::foreman-dev-csv-uploads/*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                Resource: !Sub 'arn:aws:s3:::${PandasLayerBucket}/*'
         - PolicyName: CloudWatchMetrics
           PolicyDocument:
             Version: '2012-10-17'
@@ -348,4 +615,16 @@ Outputs:
     Description: S3 Processor Lambda Function Name
     Value: !Ref S3ProcessorFunction
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-s3-processor-function' 
+      Name: !Sub '${ProjectName}-${Environment}-s3-processor-function'
+  
+  PandasLayerArn:
+    Description: Pandas Lambda Layer ARN
+    Value: !Ref PandasLayer
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-pandas-layer-arn'
+  
+  PandasLayerBucketName:
+    Description: S3 Bucket for Pandas Layer
+    Value: !Ref PandasLayerBucket
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-pandas-layer-bucket' 
