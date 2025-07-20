@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Foreman - Pandas Lambda Layer'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    Description: Environment name (dev, staging, prod)
+  
+  ProjectName:
+    Type: String
+    Default: foreman
+    Description: Project name for resource naming
+
+Resources:
+  # Pandas Lambda Layer
+  PandasLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub '${ProjectName}-${Environment}-pandas-layer'
+      Description: Pandas and NumPy for data processing
+      Content:
+        S3Bucket: !Ref PandasLayerBucket
+        S3Key: pandas-layer.zip
+      CompatibleRuntimes:
+        - python3.9
+      CompatibleArchitectures:
+        - x86_64
+
+  # S3 Bucket for Pandas Layer
+  PandasLayerBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${Environment}-pandas-layer-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+Outputs:
+  PandasLayerArn:
+    Description: Pandas Lambda Layer ARN
+    Value: !Ref PandasLayer
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-pandas-layer-arn'
+  
+  PandasLayerBucketName:
+    Description: S3 Bucket for Pandas Layer
+    Value: !Ref PandasLayerBucket
+    Export:
+      Name: !Sub '${ProjectName}-${Environment}-pandas-layer-bucket' 
