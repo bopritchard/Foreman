@@ -270,9 +270,9 @@ Resources:
                           resultsDiv.style.display = 'block';
                           resultsContent.innerHTML = '<p>🔄 Checking processing status...</p>';
                           
-                          // Poll every 2 seconds for up to 30 seconds
+                          // Poll every 3 seconds for up to 60 seconds
                           let attempts = 0;
-                          const maxAttempts = 15;
+                          const maxAttempts = 20;
                           
                           const pollInterval = setInterval(async () => {
                               attempts++;
@@ -301,7 +301,16 @@ Resources:
                                   
                                   if (attempts >= maxAttempts) {
                                       clearInterval(pollInterval);
-                                      resultsContent.innerHTML = '<p>⏰ Processing timeout. Check S3 bucket for results.</p>';
+                                      resultsContent.innerHTML = `
+                                          <p>⏰ Processing timeout (60 seconds).</p>
+                                          <p><strong>What to check:</strong></p>
+                                          <ul>
+                                              <li>S3 bucket: <code>foreman-dev-csv-uploads</code></li>
+                                              <li>Look for your file in <code>processed/</code> folder</li>
+                                              <li>Check DynamoDB table: <code>foreman-dev-customers</code></li>
+                                          </ul>
+                                          <p><em>Processing may still be running in the background.</em></p>
+                                      `;
                                   }
                               } catch (error) {
                                   console.error('Polling error:', error);
@@ -310,7 +319,7 @@ Resources:
                                       resultsContent.innerHTML = '<p>❌ Error checking status. Check S3 bucket manually.</p>';
                                   }
                               }
-                          }, 2000);
+                          }, 3000);
                       }
                       
                       function showResults(status) {
