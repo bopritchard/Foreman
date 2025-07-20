@@ -404,11 +404,10 @@ Resources:
                           for line in lines:
                               if b'filename=' in line:
                                   filename = line.split(b'filename=')[1].strip(b'"').decode('utf-8')
-                              elif b'\r\n\r\n' in part:
-                                  # Get content after the headers
-                                  content_start = part.find(b'\r\n\r\n') + 4
-                                  file_content = part[content_start:].rstrip(b'\r\n-')
-                                  break
+                          
+                          # Get content after the headers
+                          content_start = part.find(b'\r\n\r\n') + 4
+                          file_content = part[content_start:].rstrip(b'\r\n-')
                           break
                   
                   if not file_content:
@@ -427,6 +426,11 @@ Resources:
                   # Upload the actual file to S3
                   s3 = boto3.client('s3')
                   timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                  
+                  # Use a fallback filename if None
+                  if not filename:
+                      filename = 'upload.csv'
+                  
                   s3_key = f"web-upload-{timestamp}-{filename}"
                   
                   s3.put_object(
