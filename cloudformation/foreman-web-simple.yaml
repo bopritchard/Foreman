@@ -231,27 +231,81 @@ Resources:
                   # Parse the multipart form data
                   import base64
                   import tempfile
+                  import cgi
+                  import io
                   
                   # Get the request body
                   body = event.get('body', '')
                   if event.get('isBase64Encoded', False):
-                      body = base64.b64decode(body).decode('utf-8')
+                      body = base64.b64decode(body)
+                  else:
+                      body = body.encode('utf-8')
                   
-                  # For now, create a simple test file and upload to S3
-                  # In a real implementation, you'd parse the multipart data properly
+                  # Parse multipart form data
+                  content_type = event.get('headers', {}).get('content-type', '')
+                  if not content_type:
+                      content_type = event.get('headers', {}).get('Content-Type', '')
                   
-                  # Create a test CSV file
-                  test_csv_content = "name,email\nTest User,test@example.com\nAnother User,another@example.com"
+                  # Simple multipart parsing for CSV files
+                  # Look for the file content in the multipart data
+                  boundary = None
+                  if 'boundary=' in content_type:
+                      boundary = content_type.split('boundary=')[1]
                   
-                  # Upload to S3
+                  if not boundary:
+                      return {
+                          'statusCode': 400,
+                          'headers': {
+                              'Content-Type': 'application/json',
+                              'Access-Control-Allow-Origin': '*'
+                          },
+                          'body': json.dumps({
+                              'error': 'Invalid multipart data',
+                              'status': 'error'
+                          })
+                      }
+                  
+                  # Parse the multipart data manually
+                  parts = body.split(f'--{boundary}'.encode())
+                  file_content = None
+                  filename = None
+                  
+                  for part in parts:
+                      if b'Content-Disposition: form-data; name="file"' in part:
+                          # Extract filename and content
+                          lines = part.split(b'\r\n')
+                          for line in lines:
+                              if b'filename=' in line:
+                                  filename = line.split(b'filename=')[1].strip(b'"').decode('utf-8')
+                              elif b'\r\n\r\n' in part:
+                                  # Get content after the headers
+                                  content_start = part.find(b'\r\n\r\n') + 4
+                                  file_content = part[content_start:].rstrip(b'\r\n-')
+                                  break
+                          break
+                  
+                  if not file_content:
+                      return {
+                          'statusCode': 400,
+                          'headers': {
+                              'Content-Type': 'application/json',
+                              'Access-Control-Allow-Origin': '*'
+                          },
+                          'body': json.dumps({
+                              'error': 'No file content found',
+                              'status': 'error'
+                          })
+                      }
+                  
+                  # Upload the actual file to S3
                   s3 = boto3.client('s3')
                   timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                  s3_key = f"web-upload-{timestamp}.csv"
+                  s3_key = f"web-upload-{timestamp}-{filename}"
                   
                   s3.put_object(
                       Bucket='foreman-dev-csv-uploads',
                       Key=s3_key,
-                      Body=test_csv_content,
+                      Body=file_content,
                       ContentType='text/csv'
                   )
                   

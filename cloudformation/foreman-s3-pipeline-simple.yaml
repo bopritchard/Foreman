@@ -117,10 +117,22 @@ Resources:
                       }
                   
                   # Check for required columns (basic validation)
-                  required_columns = ['name', 'email']  # Example
+                  # Support multiple column name variations
+                  name_columns = ['name', 'full_name', 'first_name', 'customer_name']
+                  email_columns = ['email', 'email_address', 'contact_email']
+                  
                   if rows:
                       available_columns = list(rows[0].keys())
-                      missing_columns = [col for col in required_columns if col not in available_columns]
+                      
+                      # Find name and email columns
+                      name_col = next((col for col in name_columns if col in available_columns), None)
+                      email_col = next((col for col in email_columns if col in available_columns), None)
+                      
+                      missing_columns = []
+                      if not name_col:
+                          missing_columns.append('name (or full_name, first_name, customer_name)')
+                      if not email_col:
+                          missing_columns.append('email (or email_address, contact_email)')
                       
                       if missing_columns:
                           return {
@@ -143,8 +155,8 @@ Resources:
                           
                           item = {
                               'id': customer_id,
-                              'name': row.get('name', ''),
-                              'email': row.get('email', ''),
+                              'name': row.get(name_col, ''),
+                              'email': row.get(email_col, ''),
                               'created_at': datetime.now().isoformat(),
                               'source_file': key
                           }
