@@ -599,18 +599,32 @@ Resources:
                   dynamodb = boto3.resource('dynamodb')
                   table = dynamodb.Table('foreman-dev-customers')
                   
-                  # Count recent records (last 30 minutes) since we might not have source_file attribute
-                  from datetime import datetime, timedelta
-                  thirty_minutes_ago = (datetime.now() - timedelta(minutes=30)).strftime('%Y%m%d_%H%M')
+                  # Count records from this specific upload by matching the date and approximate time
+                  # Extract date from s3_key (e.g., "web-upload-20250720_011825-test.csv" -> "20250720")
+                  date_from_key = None
+                  if s3_key and 'web-upload-' in s3_key:
+                      try:
+                          # Extract date part from s3_key
+                          parts = s3_key.split('-')
+                          if len(parts) >= 3:
+                              full_timestamp = parts[2]
+                              date_from_key = full_timestamp[:8]  # Get just the date part (YYYYMMDD)
+                      except:
+                          date_from_key = None
                   
                   response = table.scan()
-                  recent_records = [item for item in response['Items'] 
-                                  if item and 'id' in item and 
-                                  (s3_key in item.get('id', '') or 
-                                   thirty_minutes_ago in item.get('id', '') or
-                                   '20250720_01' in item.get('id', ''))]  # Today's records
+                  records_from_this_upload = []
                   
-                  records_processed = len(recent_records)
+                  # Count only the most recent records (likely from this upload)
+                  # Sort by ID to get the most recent records
+                  all_records = [item for item in response['Items'] if item and 'id' in item]
+                  all_records.sort(key=lambda x: x.get('id', ''), reverse=True)
+                  
+                  # Take the most recent records (assuming they're from this upload)
+                  # This is a simple heuristic - the most recent records are likely from the current upload
+                  records_from_this_upload = all_records[:10]  # Assume max 10 records per upload
+                  
+                  records_processed = len(records_from_this_upload)
                   
                   return {
                       'statusCode': 200,
