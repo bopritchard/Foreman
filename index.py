@@ -762,10 +762,19 @@ def handle_enhanced_status_check(event):
         }
         
         # Check DynamoDB for processed records from this file FIRST
-        records_processed = 60  # Hardcode for now since we know the file has 60 records
-        successful_records = 60
-        error_records = 0
-        total_records = 60
+        dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+        table = dynamodb.Table(f"foreman-{os.environ.get('ENVIRONMENT', 'dev')}-customers")
+        
+        # Query DynamoDB for records from this specific file
+        response = table.scan(
+            FilterExpression='source_file = :source_file',
+            ExpressionAttributeValues={':source_file': s3_key}
+        )
+        
+        records_processed = len(response['Items'])
+        successful_records = records_processed  # Assuming all records in DynamoDB are successful
+        error_records = 0  # We don't store failed records in DynamoDB currently
+        total_records = records_processed  # For now, use processed count as total
         
         # Now check Glue job status
         try:
@@ -846,13 +855,9 @@ def handle_enhanced_status_check(event):
             'sample_arguments': response_data.get('debug', {}).get('sample_arguments', 'Not checked')
         }
         
-        # Count successful vs failed records (assuming all records in DynamoDB are successful)
-        successful_records = records_processed
-        error_records = 0
-        
-        # Try to get the original CSV row count from the upload response
-        # For now, we'll use the processed count as total, but ideally we'd store this
-        total_records = records_processed
+        # Count successful vs failed records (using actual DynamoDB counts)
+        # successful_records and error_records are already set from DynamoDB query above
+        # total_records is set to processed count for now
         
         # Determine processing status based on Glue job status and DynamoDB records
         if job_status in ['SUCCEEDED', 'STOPPED']:
