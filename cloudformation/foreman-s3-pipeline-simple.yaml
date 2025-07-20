@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Foreman - S3 Upload Pipeline for Automated CSV Processing'
+Description: 'Foreman - Simple S3 Pipeline for CSV Processing'
 
 Parameters:
   Environment:
@@ -13,37 +13,6 @@ Parameters:
     Description: Project name for resource naming
 
 Resources:
-  # S3 Bucket for CSV Uploads
-  CSVUploadBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub '${ProjectName}-${Environment}-csv-uploads'
-      VersioningConfiguration:
-        Status: Enabled
-      LifecycleConfiguration:
-        Rules:
-          - Id: DeleteProcessedFiles
-            Status: Enabled
-            ExpirationInDays: 7
-            Prefix: processed/
-          - Id: DeleteFailedFiles
-            Status: Enabled
-            ExpirationInDays: 30
-            Prefix: failed/
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: !Ref ProjectName
-
-
-
-
   # Lambda Function for S3 Event Processing
   S3ProcessorFunction:
     Type: AWS::Lambda::Function
@@ -53,7 +22,7 @@ Resources:
         ZipFile: |
           import json
           import boto3
-          import pandas as pd
+          import csv
           import os
           import tempfile
           from datetime import datetime
@@ -69,15 +38,27 @@ Resources:
                   
                   print(f"Processing file: s3://{bucket}/{key}")
                   
+                  # Only process files in the root directory (not in processed/ or failed/ folders)
+                  if '/' in key:
+                      print(f"Skipping file in subdirectory: {key}")
+                      return {
+                          'statusCode': 200,
+                          'body': json.dumps({'message': f"Skipped {key} - not in root directory"})
+                      }
+                  
                   # Download CSV file from S3
                   with tempfile.NamedTemporaryFile(suffix='.csv') as tmp_file:
                       s3.download_file(bucket, key, tmp_file.name)
                       
                       # Read CSV
-                      df = pd.read_csv(tmp_file.name)
+                      rows = []
+                      with open(tmp_file.name, 'r') as csvfile:
+                          reader = csv.DictReader(csvfile)
+                          for row in reader:
+                              rows.append(row)
                       
                       # Process with Foreman (simplified for now)
-                      result = process_csv(df, bucket, key)
+                      result = process_csv(rows, bucket, key)
                       
                       # Move file to processed/failed folder
                       new_key = f"{'processed' if result['success'] else 'failed'}/{key}"
@@ -121,15 +102,42 @@ Resources:
                       'body': json.dumps({'error': str(e)})
                   }
           
-          def process_csv(df, bucket, key):
+          def process_csv(rows, bucket, key):
               """Process CSV with Foreman logic"""
-              # This would integrate with the actual Foreman models
-              # For now, return a mock result
-              return {
-                  'success': True,
-                  'records_processed': len(df),
-                  'errors': []
-              }
+              try:
+                  # Basic validation
+                  if not rows:
+                      return {
+                          'success': False,
+                          'records_processed': 0,
+                          'errors': ['CSV file is empty']
+                      }
+                  
+                  # Check for required columns (basic validation)
+                  required_columns = ['name', 'email']  # Example
+                  if rows:
+                      available_columns = list(rows[0].keys())
+                      missing_columns = [col for col in required_columns if col not in available_columns]
+                      
+                      if missing_columns:
+                          return {
+                              'success': False,
+                              'records_processed': 0,
+                              'errors': [f'Missing required columns: {missing_columns}']
+                          }
+                  
+                  # For now, return a mock result
+                  return {
+                      'success': True,
+                      'records_processed': len(rows),
+                      'errors': []
+                  }
+              except Exception as e:
+                  return {
+                      'success': False,
+                      'records_processed': 0,
+                      'errors': [f'Processing error: {str(e)}']
+                  }
       
       Handler: index.lambda_handler
       Runtime: python3.9
@@ -168,7 +176,7 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                   - s3:CopyObject
-                Resource: !Sub 'arn:aws:s3:::${CSVUploadBucket}/*'
+                Resource: 'arn:aws:s3:::foreman-dev-csv-uploads/*'
         - PolicyName: CloudWatchMetrics
           PolicyDocument:
             Version: '2012-10-17'
@@ -185,67 +193,11 @@ Resources:
       FunctionName: !Ref S3ProcessorFunction
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
-      SourceArn: !GetAtt CSVUploadBucket.Arn
-
-  # CloudWatch Dashboard
-  ProcessingDashboard:
-    Type: AWS::CloudWatch::Dashboard
-    Properties:
-      DashboardName: !Sub '${ProjectName}-${Environment}-processing-dashboard'
-      DashboardBody: !Sub |
-        {
-          "widgets": [
-            {
-              "type": "metric",
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  ["AWS/S3", "NumberOfObjects", "BucketName", "${CSVUploadBucket}", "StorageType", "AllStorageTypes"]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "title": "S3 Bucket Objects"
-              }
-            },
-            {
-              "type": "metric",
-              "x": 12,
-              "y": 0,
-              "width": 12,
-              "height": 6,
-              "properties": {
-                "metrics": [
-                  ["Foreman/CSVProcessing", "FilesProcessed", "Environment", "${Environment}", "Status", "success"],
-                  [".", ".", ".", ".", ".", "failed"]
-                ],
-                "view": "timeSeries",
-                "stacked": false,
-                "region": "us-east-1",
-                "title": "CSV Processing Results"
-              }
-            }
-          ]
-        }
+      SourceArn: 'arn:aws:s3:::foreman-dev-csv-uploads'
 
 Outputs:
-  S3BucketName:
-    Description: S3 Bucket for CSV uploads
-    Value: !Ref CSVUploadBucket
+  S3ProcessorFunctionName:
+    Description: S3 Processor Lambda Function Name
+    Value: !Ref S3ProcessorFunction
     Export:
-      Name: !Sub '${ProjectName}-${Environment}-s3-bucket'
-
-  S3BucketUrl:
-    Description: S3 Console URL
-    Value: !Sub 'https://s3.console.aws.amazon.com/s3/buckets/${CSVUploadBucket}'
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-s3-console-url'
-
-  CloudWatchDashboardUrl:
-    Description: CloudWatch Dashboard URL
-    Value: !Sub 'https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=${ProjectName}-${Environment}-processing-dashboard'
-    Export:
-      Name: !Sub '${ProjectName}-${Environment}-dashboard-url' 
+      Name: !Sub '${ProjectName}-${Environment}-s3-processor-function' 
