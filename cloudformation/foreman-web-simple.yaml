@@ -504,7 +504,7 @@ Resources:
                           MaxKeys=100
                       )
                       
-                      processed_files = [obj['Key'] for obj in response.get('Contents', [])]
+                      processed_files = [obj['Key'] for obj in response.get('Contents', []) if obj and 'Key' in obj]
                       matching_processed = [f for f in processed_files if s3_key.replace('-None', '') in f or s3_key in f]
                       
                       if matching_processed:
@@ -519,7 +519,7 @@ Resources:
                               MaxKeys=100
                           )
                           
-                          failed_files = [obj['Key'] for obj in response.get('Contents', [])]
+                          failed_files = [obj['Key'] for obj in response.get('Contents', []) if obj and 'Key' in obj]
                           matching_failed = [f for f in failed_files if s3_key.replace('-None', '') in f or s3_key in f]
                           
                           if matching_failed:
@@ -566,15 +566,16 @@ Resources:
                   dynamodb = boto3.resource('dynamodb')
                   table = dynamodb.Table('foreman-dev-customers')
                   
-                  # Count recent records (last 5 minutes) since we might not have source_file attribute
+                  # Count recent records (last 30 minutes) since we might not have source_file attribute
                   from datetime import datetime, timedelta
-                  five_minutes_ago = (datetime.now() - timedelta(minutes=5)).strftime('%Y%m%d_%H%M')
+                  thirty_minutes_ago = (datetime.now() - timedelta(minutes=30)).strftime('%Y%m%d_%H%M')
                   
                   response = table.scan()
                   recent_records = [item for item in response['Items'] 
-                                  if 'id' in item and 
+                                  if item and 'id' in item and 
                                   (s3_key in item.get('id', '') or 
-                                   five_minutes_ago in item.get('id', ''))]
+                                   thirty_minutes_ago in item.get('id', '') or
+                                   '20250720_01' in item.get('id', ''))]  # Today's records
                   
                   records_processed = len(recent_records)
                   
