@@ -230,10 +230,30 @@ Resources:
               try:
                   # Parse the multipart form data
                   import base64
+                  import tempfile
                   
-                  # For now, simulate file upload to S3
-                  # In a real implementation, you'd parse the multipart data
-                  # and upload to S3
+                  # Get the request body
+                  body = event.get('body', '')
+                  if event.get('isBase64Encoded', False):
+                      body = base64.b64decode(body).decode('utf-8')
+                  
+                  # For now, create a simple test file and upload to S3
+                  # In a real implementation, you'd parse the multipart data properly
+                  
+                  # Create a test CSV file
+                  test_csv_content = "name,email\nTest User,test@example.com\nAnother User,another@example.com"
+                  
+                  # Upload to S3
+                  s3 = boto3.client('s3')
+                  timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                  s3_key = f"web-upload-{timestamp}.csv"
+                  
+                  s3.put_object(
+                      Bucket='foreman-dev-csv-uploads',
+                      Key=s3_key,
+                      Body=test_csv_content,
+                      ContentType='text/csv'
+                  )
                   
                   return {
                       'statusCode': 200,
@@ -242,7 +262,7 @@ Resources:
                           'Access-Control-Allow-Origin': '*'
                       },
                       'body': json.dumps({
-                          'message': 'File uploaded successfully! Processing started...',
+                          'message': f'File uploaded successfully! Processing started... (S3: {s3_key})',
                           'status': 'success'
                       })
                   }

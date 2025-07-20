@@ -126,11 +126,40 @@ Resources:
                               'errors': [f'Missing required columns: {missing_columns}']
                           }
                   
-                  # For now, return a mock result
+                  # Process records and write to DynamoDB
+                  dynamodb = boto3.resource('dynamodb')
+                  table = dynamodb.Table('foreman-dev-customers')
+                  
+                  records_processed = 0
+                  errors = []
+                  
+                  for i, row in enumerate(rows):
+                      try:
+                          # Create customer record
+                          customer_id = f"customer_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{i}"
+                          
+                          item = {
+                              'id': customer_id,
+                              'name': row.get('name', ''),
+                              'email': row.get('email', ''),
+                              'created_at': datetime.now().isoformat(),
+                              'source_file': key
+                          }
+                          
+                          # Write to DynamoDB
+                          table.put_item(Item=item)
+                          records_processed += 1
+                          print(f"Processed customer: {customer_id}")
+                          
+                      except Exception as e:
+                          error_msg = f"Row {i+1}: {str(e)}"
+                          errors.append(error_msg)
+                          print(f"Error processing row {i+1}: {str(e)}")
+                  
                   return {
-                      'success': True,
-                      'records_processed': len(rows),
-                      'errors': []
+                      'success': records_processed > 0,
+                      'records_processed': records_processed,
+                      'errors': errors
                   }
               except Exception as e:
                   return {
@@ -185,6 +214,17 @@ Resources:
                 Action:
                   - cloudwatch:PutMetricData
                 Resource: '*'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: 'arn:aws:dynamodb:us-east-1:631138567000:table/foreman-dev-customers'
 
   # Lambda Permission for S3
   S3LambdaPermission:
