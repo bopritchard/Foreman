@@ -491,42 +491,88 @@ Resources:
                   processed_key = f"processed/{s3_key}"
                   failed_key = f"failed/{s3_key}"
                   
+                  # Also check for files with similar names (in case filename was modified)
                   try:
-                      # Try to get the processed file
-                      s3.head_object(Bucket='foreman-dev-csv-uploads', Key=processed_key)
-                      status = 'processed'
-                      success = True
-                  except:
+                      # List objects in processed folder to find matching files
+                      response = s3.list_objects_v2(
+                          Bucket='foreman-dev-csv-uploads',
+                          Prefix='processed/',
+                          MaxKeys=100
+                      )
+                      
+                      processed_files = [obj['Key'] for obj in response.get('Contents', [])]
+                      matching_processed = [f for f in processed_files if s3_key.replace('-None', '') in f or s3_key in f]
+                      
+                      if matching_processed:
+                          status = 'processed'
+                          success = True
+                          actual_processed_key = matching_processed[0]
+                      else:
+                          # Check for failed files
+                          response = s3.list_objects_v2(
+                              Bucket='foreman-dev-csv-uploads',
+                              Prefix='failed/',
+                              MaxKeys=100
+                          )
+                          
+                          failed_files = [obj['Key'] for obj in response.get('Contents', [])]
+                          matching_failed = [f for f in failed_files if s3_key.replace('-None', '') in f or s3_key in f]
+                          
+                          if matching_failed:
+                              status = 'failed'
+                              success = False
+                          else:
+                              # File not processed yet
+                              return {
+                                  'statusCode': 200,
+                                  'headers': {
+                                      'Content-Type': 'application/json',
+                                      'Access-Control-Allow-Origin': '*'
+                                  },
+                                  'body': json.dumps({
+                                      'processed': False,
+                                      'message': 'File still being processed...'
+                                  })
+                              }
+                  except Exception as e:
+                      # Fallback to original logic
                       try:
-                          # Try to get the failed file
-                          s3.head_object(Bucket='foreman-dev-csv-uploads', Key=failed_key)
-                          status = 'failed'
-                          success = False
+                          s3.head_object(Bucket='foreman-dev-csv-uploads', Key=processed_key)
+                          status = 'processed'
+                          success = True
                       except:
-                          # File not processed yet
-                          return {
-                              'statusCode': 200,
-                              'headers': {
-                                  'Content-Type': 'application/json',
-                                  'Access-Control-Allow-Origin': '*'
-                              },
-                              'body': json.dumps({
-                                  'processed': False,
-                                  'message': 'File still being processed...'
-                              })
-                          }
+                          try:
+                              s3.head_object(Bucket='foreman-dev-csv-uploads', Key=failed_key)
+                              status = 'failed'
+                              success = False
+                          except:
+                              return {
+                                  'statusCode': 200,
+                                  'headers': {
+                                      'Content-Type': 'application/json',
+                                      'Access-Control-Allow-Origin': '*'
+                                  },
+                                  'body': json.dumps({
+                                      'processed': False,
+                                      'message': 'File still being processed...'
+                                  })
+                              }
                   
                   # Get actual processing results from DynamoDB
                   dynamodb = boto3.resource('dynamodb')
                   table = dynamodb.Table('foreman-dev-customers')
                   
-                  # Count records from this file
-                  response = table.scan(
-                      FilterExpression='source_file = :file',
-                      ExpressionAttributeValues={':file': s3_key}
-                  )
+                  # Count recent records (last 5 minutes) since we might not have source_file attribute
+                  from datetime import datetime, timedelta
+                  five_minutes_ago = (datetime.now() - timedelta(minutes=5)).strftime('%Y%m%d_%H%M')
                   
-                  records_processed = len(response['Items'])
+                  response = table.scan()
+                  recent_records = [item for item in response['Items'] 
+                                  if 'id' in item and 
+                                  (s3_key in item.get('id', '') or 
+                                   five_minutes_ago in item.get('id', ''))]
+                  
+                  records_processed = len(recent_records)
                   
                   return {
                       'statusCode': 200,
@@ -588,6 +634,8 @@ Resources:
                 Action:
                   - s3:PutObject
                   - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListObjectsV2
                 Resource: 'arn:aws:s3:::foreman-dev-csv-uploads/*'
 
   # API Gateway
