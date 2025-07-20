@@ -33,6 +33,18 @@ GLUE_SCRIPTS_BUCKET=$(aws cloudformation describe-stacks \
 echo "📤 Uploading Glue job script to S3..."
 aws s3 cp glue_job.py s3://${GLUE_SCRIPTS_BUCKET}/
 
+# Update the Glue job to reference the uploaded script
+echo "🔄 Updating Glue job with script reference..."
+aws cloudformation deploy \
+    --template-file cloudformation/foreman-s3-pipeline-simple.yaml \
+    --stack-name ${STACK_NAME} \
+    --region ${REGION} \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides \
+        Environment=${ENVIRONMENT} \
+        ProjectName=foreman \
+    --no-fail-on-empty-changeset
+
 echo "✅ Glue Infrastructure deployment completed successfully!"
 
 echo ""
