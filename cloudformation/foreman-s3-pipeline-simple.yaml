@@ -61,7 +61,10 @@ Resources:
                       result = process_csv(rows, bucket, key)
                       
                       # Move file to processed/failed folder
-                      new_key = f"{'processed' if result['success'] else 'failed'}/{key}"
+                      # Sanitize the key to prevent nested failed/ prefixes
+                      import re
+                      clean_key = re.sub(r'^(failed\/|processed\/)+', '', key)
+                      new_key = f"{'processed' if result['success'] else 'failed'}/{clean_key}"
                       s3.copy_object(
                           Bucket=bucket,
                           CopySource={'Bucket': bucket, 'Key': key},
