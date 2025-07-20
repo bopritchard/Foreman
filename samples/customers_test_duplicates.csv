@@ -1,0 +1,6 @@
+name,email,phone,company,title,start_date
+Alice Cooper,alice.cooper@test.com,555-0401,TestCorp,Manager,2023-01-15
+Bob Smith,bob.smith@test.com,555-0402,TestCorp,Engineer,2023-02-20
+Alice Cooper,alice.cooper@test.com,555-0403,TestCorp,Senior Manager,2023-03-10
+Charlie Brown,charlie.brown@test.com,555-0404,TestCorp,Supervisor,2023-04-05
+Bob Smith,bob.smith@test.com,555-0405,TestCorp,Lead Engineer,2023-05-12 

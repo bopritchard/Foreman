@@ -1,0 +1,6 @@
+name,customerEmail,signupDate,phone,company,title
+Alice Cooper,alice.cooper@test.com,2023-01-15,555-123-4567,TestCorp,Manager
+Bob Smith,bob.smith@test.com,2023-02-20,555-234-5678,TestCorp,Engineer
+Alice Cooper,alice.cooper@test.com,2023-03-10,555-345-6789,TestCorp,Senior Manager
+Charlie Brown,charlie.brown@test.com,2023-04-05,555-456-7890,TestCorp,Supervisor
+Bob Smith,bob.smith@test.com,2023-05-12,555-567-8901,TestCorp,Lead Engineer 

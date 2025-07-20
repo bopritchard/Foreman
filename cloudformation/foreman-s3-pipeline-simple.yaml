@@ -50,6 +50,45 @@ Resources:
                   with tempfile.NamedTemporaryFile(suffix='.csv') as tmp_file:
                       s3.download_file(bucket, key, tmp_file.name)
                       
+                      # Calculate file content hash to prevent duplicate processing
+                      import hashlib
+                      with open(tmp_file.name, 'rb') as f:
+                          file_content = f.read()
+                          file_hash = hashlib.md5(file_content).hexdigest()
+                      
+                      print(f"File hash: {file_hash}")
+                      
+                      # Check if this file content has already been processed
+                      dynamodb = boto3.resource('dynamodb')
+                      table = dynamodb.Table('foreman-dev-customers')
+                      
+                      # Look for existing records with this file hash
+                      response = table.scan(
+                          FilterExpression='file_hash = :file_hash',
+                          ExpressionAttributeValues={':file_hash': file_hash}
+                      )
+                      
+                      if response['Items']:
+                          print(f"File content with hash {file_hash} has already been processed. Skipping.")
+                          # Move file to processed folder and return
+                          new_key = f"processed/{key}"
+                          s3.copy_object(
+                              Bucket=bucket,
+                              CopySource={'Bucket': bucket, 'Key': key},
+                              Key=new_key
+                          )
+                          s3.delete_object(Bucket=bucket, Key=key)
+                          
+                          return {
+                              'statusCode': 200,
+                              'body': json.dumps({
+                                  'message': f"File content already processed, skipping",
+                                  'success': True,
+                                  'records_processed': 0,
+                                  'errors': ['File content already processed']
+                              })
+                          }
+                      
                       # Read CSV
                       rows = []
                       with open(tmp_file.name, 'r') as csvfile:
@@ -207,7 +246,8 @@ Resources:
                               'name': name,
                               'email': email,
                               'created_at': datetime.now().isoformat(),
-                              'source_file': key
+                              'source_file': key,
+                              'file_hash': file_hash
                           }
                           
                           # Write to DynamoDB

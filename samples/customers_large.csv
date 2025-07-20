@@ -1,0 +1,11 @@
+name,email,phone,company,title,department,location,start_date,salary,status
+John Smith,john.smith@turnerconstruction.com,212-555-0101,Turner Construction,Project Manager,Operations,New York,2022-03-15,85000,Active
+Sarah Johnson,sarah.johnson@bechtel.com,415-555-0102,Bechtel Corporation,Senior Engineer,Engineering,San Francisco,2021-08-22,92000,Active
+Michael Chen,michael.chen@fluor.com,713-555-0103,Fluor Corporation,Construction Manager,Operations,Houston,2023-01-10,78000,Active
+Emily Davis,emily.davis@jacobs.com,469-555-0104,Jacobs Engineering,Project Engineer,Engineering,Dallas,2022-11-05,75000,Active
+David Wilson,david.wilson@skanska.com,312-555-0105,Skanska USA,Superintendent,Field Operations,Chicago,2021-12-18,82000,Active
+Lisa Brown,lisa.brown@kiewit.com,402-555-0106,Kiewit Corporation,Estimator,Preconstruction,Omaha,2023-02-28,68000,Active
+Robert Taylor,robert.taylor@whiting-turner.com,410-555-0107,Whiting-Turner Contracting,Project Manager,Operations,Baltimore,2022-06-12,88000,Active
+Jennifer Garcia,jennifer.garcia@clarkconstruction.com,202-555-0108,Clark Construction,Senior Project Manager,Operations,Washington DC,2021-09-30,95000,Active
+Christopher Lee,christopher.lee@mortenson.com,612-555-0109,Mortenson Construction,Field Engineer,Engineering,Minneapolis,2023-04-15,72000,Active
+Amanda Martinez,amanda.martinez@dpr.com,650-555-0110,DPR Construction,Project Coordinator,Operations,Redwood City,2022-07-08,65000,Active 
