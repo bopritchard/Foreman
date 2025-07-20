@@ -150,13 +150,43 @@ Resources:
                   
                   for i, row in enumerate(rows):
                       try:
+                          email = row.get(email_col, '').strip()
+                          name = row.get(name_col, '').strip()
+                          
+                          # Skip empty emails
+                          if not email:
+                              error_msg = f"Row {i+1}: Email is required"
+                              errors.append(error_msg)
+                              print(f"Error processing row {i+1}: Email is required")
+                              continue
+                          
+                          # Check for existing email using GSI
+                          try:
+                              # Use GSI for efficient email lookup
+                              response = table.query(
+                                  IndexName='EmailIndex',
+                                  KeyConditionExpression='email = :email',
+                                  ExpressionAttributeValues={':email': email}
+                              )
+                              
+                              if response['Items']:
+                                  existing_customer = response['Items'][0]
+                                  error_msg = f"Row {i+1}: Email '{email}' already exists (Customer ID: {existing_customer.get('id', 'unknown')})"
+                                  errors.append(error_msg)
+                                  print(f"Error processing row {i+1}: Email already exists")
+                                  continue
+                                  
+                          except Exception as scan_error:
+                              print(f"Error checking for existing email: {str(scan_error)}")
+                              # Continue with insertion if scan fails
+                          
                           # Create customer record
                           customer_id = f"customer_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{i}"
                           
                           item = {
                               'id': customer_id,
-                              'name': row.get(name_col, ''),
-                              'email': row.get(email_col, ''),
+                              'name': name,
+                              'email': email,
                               'created_at': datetime.now().isoformat(),
                               'source_file': key
                           }
