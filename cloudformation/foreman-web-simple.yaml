@@ -402,6 +402,19 @@ Resources:
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebApiFunction.Arn}/invocations'
 
+  # API Gateway Method for HEAD
+  WebApiMethodHead:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WebApiGateway
+      ResourceId: !GetAtt WebApiGateway.RootResourceId
+      HttpMethod: HEAD
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebApiFunction.Arn}/invocations'
+
   # API Gateway Method for OPTIONS (CORS)
   WebApiMethodOptions:
     Type: AWS::ApiGateway::Method
@@ -430,6 +443,7 @@ Resources:
     DependsOn:
       - WebApiMethodGet
       - WebApiMethodPost
+      - WebApiMethodHead
       - WebApiMethodOptions
     Properties:
       RestApiId: !Ref WebApiGateway
