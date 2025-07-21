@@ -19,11 +19,24 @@ from pyspark.sql import SparkSession
 
 # Get job parameters
 args = getResolvedOptions(sys.argv, [
-    'JOB_NAME',
-    's3_bucket',
-    's3_key',
-    'job_run_id'
+    'JOB_NAME'
 ])
+
+# For now, process the most recent file in the bucket
+s3_bucket = 'foreman-dev-csv-uploads'
+job_run_id = 'test-run'
+
+# List files in the bucket and process the most recent one
+s3_client = boto3.client('s3')
+response = s3_client.list_objects_v2(Bucket=s3_bucket, MaxKeys=10)
+if 'Contents' in response:
+    # Get the most recent file
+    files = sorted(response['Contents'], key=lambda x: x['LastModified'], reverse=True)
+    s3_key = files[0]['Key']
+    print(f"📁 Processing most recent file: {s3_key}")
+else:
+    print("❌ No files found in bucket")
+    sys.exit(1)
 
 # Initialize Spark and Glue context
 sc = SparkContext()
