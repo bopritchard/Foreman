@@ -1,6 +1,0 @@
-name,email,phone,company,title,start_date
-Valid User,valid@example.com,555-0501,ValidCorp,Manager,2023-01-15
-Invalid Email,invalid-email,555-0502,ValidCorp,Engineer,2023-02-20
-Missing Email,,555-0503,ValidCorp,Supervisor,2023-03-10
-Short Phone,test@example.com,123,ValidCorp,Manager,2023-04-05
-Invalid Date,test2@example.com,555-0505,ValidCorp,Engineer,not-a-date 

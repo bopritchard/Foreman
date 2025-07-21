@@ -1,6 +1,0 @@
-full_name,email_address,phone_number,company_name,position,hire_date,location,department,employee_id
-Alex Rodriguez,alex.rodriguez@aec.com,305-555-0201,AECOM,Senior Project Manager,2022-01-15,Miami,Operations,EMP001
-Maria Gonzalez,maria.gonzalez@wsp.com,305-555-0202,WSP Global,Construction Engineer,2021-11-08,Miami,Engineering,EMP002
-James Thompson,james.thompson@stantec.com,416-555-0203,Stantec,Project Director,2023-03-22,Toronto,Management,EMP003
-Rachel Kim,rachel.kim@hdr.com,612-555-0204,HDR Inc,Senior Estimator,2022-08-14,Minneapolis,Preconstruction,EMP004
-Daniel Park,daniel.park@aecom.com,213-555-0205,AECOM,Field Superintendent,2021-12-03,Los Angeles,Operations,EMP005 

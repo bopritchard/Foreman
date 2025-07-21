@@ -22,9 +22,9 @@ args = getResolvedOptions(sys.argv, [
     'JOB_NAME'
 ])
 
-# For now, process the most recent file in the bucket
+# Auto-detect the most recent file in the bucket
 s3_bucket = 'foreman-dev-csv-uploads'
-job_run_id = 'test-run'
+job_run_id = f"glue-job-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
 # List files in the bucket and process the most recent one
 s3_client = boto3.client('s3')
@@ -47,10 +47,6 @@ job.init(args['JOB_NAME'], args)
 
 def process_csv_with_pandas():
     """Process CSV file using pandas for data validation and transformation"""
-    
-    s3_bucket = args['s3_bucket']
-    s3_key = args['s3_key']
-    job_run_id = args['job_run_id']
     
     print(f"🚀 Starting Glue job: {job_run_id}")
     print(f"📁 Processing file: s3://{s3_bucket}/{s3_key}")
@@ -100,18 +96,45 @@ def process_csv_with_pandas():
         
         for index, row in df.iterrows():
             try:
-                # Validate required fields
-                if 'email' not in row or pd.isna(row['email']):
-                    raise ValueError("Email is required")
+                # Handle different column name variations
+                email_col = None
+                name_col = None
                 
-                if 'name' not in row or pd.isna(row['name']):
-                    raise ValueError("Name is required")
+                # Check for email column variations
+                for col in ['email', 'email_address', 'Email', 'Email Address']:
+                    if col in row and not pd.isna(row[col]):
+                        email_col = col
+                        break
+                
+                # Check for name column variations
+                for col in ['name', 'full_name', 'Name', 'Full Name']:
+                    if col in row and not pd.isna(row[col]):
+                        name_col = col
+                        break
+                
+                if email_col is None:
+                    raise ValueError("Email column not found (tried: email, email_address, Email, Email Address)")
+                
+                if name_col is None:
+                    raise ValueError("Name column not found (tried: name, full_name, Name, Full Name)")
                 
                 # Clean and validate data
-                email = str(row['email']).strip().lower()
-                name = str(row['name']).strip()
-                phone = str(row.get('phone', '')).strip() if 'phone' in row and not pd.isna(row['phone']) else ''
-                signup_date = str(row.get('signupDate', '')).strip() if 'signupDate' in row and not pd.isna(row['signupDate']) else ''
+                email = str(row[email_col]).strip().lower()
+                name = str(row[name_col]).strip()
+                
+                # Handle phone column variations
+                phone = ''
+                for phone_col in ['phone', 'phone_number', 'Phone', 'Phone Number']:
+                    if phone_col in row and not pd.isna(row[phone_col]):
+                        phone = str(row[phone_col]).strip()
+                        break
+                
+                # Handle date column variations
+                signup_date = ''
+                for date_col in ['signupDate', 'hire_date', 'Signup Date', 'Hire Date']:
+                    if date_col in row and not pd.isna(row[date_col]):
+                        signup_date = str(row[date_col]).strip()
+                        break
                 
                 # Validate email format
                 if '@' not in email or '.' not in email:

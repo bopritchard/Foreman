@@ -1,0 +1,16 @@
+full_name,email_address,phone_number,company_name,position,hire_date,location,department,employee_id
+Alex Rodriguez,alex.rodriguez@aec.com,305-555-0201,AECOM,Senior Project Manager,2022-01-15,Miami,Operations,EMP001
+Maria Gonzalez,maria.gonzalez@wsp.com,305-555-0202,WSP Global,Construction Engineer,2021-11-08,Miami,Engineering,EMP002
+James Thompson,james.thompson@stantec.com,416-555-0203,Stantec,Project Director,2023-03-22,Toronto,Management,EMP003
+Rachel Kim,rachel.kim@hdr.com,612-555-0204,HDR Inc,Senior Estimator,2022-08-14,Minneapolis,Preconstruction,EMP004
+Daniel Park,daniel.park@aecom.com,213-555-0205,AECOM,Field Superintendent,2021-12-03,Los Angeles,Operations,EMP005
+Sarah Johnson,sarah.johnson@jacobs.com,312-555-0206,Jacobs Engineering,Senior Architect,2023-01-10,Chicago,Design,EMP006
+Michael Chen,michael.chen@arup.com,415-555-0207,Arup Group,Structural Engineer,2022-05-18,San Francisco,Engineering,EMP007
+Emily Davis,emily.davis@skanska.com,212-555-0208,Skanska,Project Manager,2021-09-12,New York,Construction,EMP008
+David Wilson,david.wilson@fluor.com,713-555-0209,Fluor Corporation,Cost Engineer,2023-02-28,Houston,Estimating,EMP009
+Lisa Brown,lisa.brown@bechtel.com,202-555-0210,Bechtel Corporation,Senior Designer,2022-11-05,Washington DC,Design,EMP010
+Robert Taylor,robert.taylor@kiewit.com,402-555-0211,Kiewit Corporation,Construction Manager,2021-07-20,Omaha,Operations,EMP011
+Jennifer Lee,jennifer.lee@tutorperini.com,310-555-0212,Tutor Perini,Project Engineer,2023-04-15,Los Angeles,Engineering,EMP012
+Christopher Martinez,christopher.martinez@granite.com,916-555-0213,Granite Construction,Field Engineer,2022-06-30,Sacramento,Operations,EMP013
+Amanda White,amanda.white@mastecfc.com,303-555-0214,MasTec,Senior Estimator,2021-10-22,Denver,Preconstruction,EMP014
+Kevin Anderson,kevin.anderson@quanta.com,512-555-0215,Quanta Services,Project Director,2023-05-08,Austin,Management,EMP015 

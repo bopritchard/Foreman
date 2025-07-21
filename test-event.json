@@ -1,0 +1,7 @@
+{
+  "httpMethod": "POST",
+  "queryStringParameters": {
+    "action": "glue-upload"
+  },
+  "body": "{\"csv_data\": \"bmFtZSxlbWFpbCxwaG9uZSxzaWdudXBEYXRlCkpvaG4gRG9lLGpvaG5AZXhhbXBsZS5jb20sNTU1LTEyMzQsMjAyNS0wMS0xNQpKYW5lIFNtaXRoLGphbmVAZXhhbXBsZS5jb20sNTU1LTU2NzgsMjAyNS0wMS0xNgpCb2IgSm9obnNvbixib2JAZXhhbXBsZS5jb20sNTU1LTkwMTIsMjAyNS0wMS0xNw==\", \"filename\": \"test-fix.csv\"}"
+} 
