@@ -1,5 +1,0 @@
-{
-  "httpMethod": "POST",
-  "path": "/check-status",
-  "body": "{\"s3_key\": \"test-fix.csv\"}"
-} 
