@@ -62,6 +62,8 @@ While this is a POC, it's built with production principles:
 - **Monitoring and logging** capabilities
 - **Security best practices** with IAM roles and policies
 
+*Note: DynamoDB was chosen for practicality in this POC - obviously a NoSQL database wouldn't be production-worthy for serious analytics! 😄 Just keeping things simple for the demo.*
+
 ### 💡 **Why This Matters for Your Team**
 
 This demonstrates my ability to:
