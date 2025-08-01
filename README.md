@@ -12,14 +12,14 @@
 4. **Watch real-time processing** as the pipeline handles your data
 5. **Observe the data flow** through AWS services with live status updates
 
-## 🎯 Interview Pitch: Enterprise-Scale Data Processing POC
+## 🎯 Enterprise-Scale Data Processing POC
 
-This project demonstrates my **proof-of-concept for handling data at scale** with complex transformations using the **Python stack that your team uses**. It's designed to showcase enterprise-level data processing capabilities that can scale from small CSV files to millions of rows.
+This project demonstrates my **proof-of-concept for handling data at scale** with complex transformations using the **Python stack commonly employed in data orgs**. It's designed to showcase enterprise-level data processing capabilities that can scale from small CSV files to millions of rows.
 
 ### 🏗️ **Architecture Highlights**
 
 **Python-First Approach:**
-- **Pandas for data manipulation** - Leveraging the team's existing Python expertise
+- **Pandas for data manipulation** - Leveraging Python
 - **AWS Glue for complex transformations** - Serverless ETL with pandas support
 - **Real-time processing pipeline** - Live status updates and progress tracking
 - **Scalable infrastructure** - Ready for production workloads
@@ -67,7 +67,7 @@ While this is a POC, it's built with production principles:
 ### 💡 **Why This Matters for Your Team**
 
 This demonstrates my ability to:
-- **Work with your existing Python stack** (pandas, AWS services)
+- **Work with Python stack** (pandas, AWS services)
 - **Handle complex data transformations** at scale
 - **Build production-ready applications** with proper architecture
 - **Create intuitive user experiences** for data processing workflows
@@ -144,4 +144,4 @@ The application processes CSV data through:
 
 ---
 
-*This POC showcases my ability to build enterprise-grade data processing applications using the Python stack your team relies on, with a focus on scalability, maintainability, and user experience.* 
+*This POC showcases my ability to build enterprise-grade data processing applications using the Python stack, with a focus on scalability, maintainability, and user experience.* 
